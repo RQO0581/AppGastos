@@ -6,7 +6,10 @@ public class CompartirArchivos(IJSRuntime js)
 {
     private const string TipoExcel = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-    // Devuelve "compartido", "cancelado", "descargado" o "error: ...".
-    public ValueTask<string> CompartirExcelAsync(string nombreArchivo, byte[] contenido) =>
-        js.InvokeAsync<string>("appGastos.compartirArchivo", nombreArchivo, TipoExcel, contenido);
+    // Devuelve "compartido", "cancelado", "guardado" o "guardado: <motivo>" si compartir falló.
+    public ValueTask<string> CompartirOGuardarExcelAsync(string nombreArchivo, byte[] contenido) =>
+        js.InvokeAsync<string>("appGastos.compartirOGuardar", nombreArchivo, TipoExcel, contenido);
+
+    public ValueTask<bool> CopiarTextoAsync(string texto) =>
+        js.InvokeAsync<bool>("appGastos.copiarTexto", texto);
 }

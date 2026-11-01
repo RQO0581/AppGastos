@@ -6,24 +6,46 @@
 
 <h1>Prueba de Excel</h1>
 
-<p>Crea un Excel con datos de ejemplo. Prueba las dos formas de compartir.</p>
+<p>Crea un Excel con datos de ejemplo. Si el teléfono no permite compartirlo, se guarda en Descargas.</p>
 
-<h2>Opción A: un toque</h2>
-<button class="boton" id="un-toque" disabled="@ocupado" @onclick="CrearYCompartir">Crear y compartir</button>
+<label class="etiqueta" for="correo">Correo de destino</label>
+<input class="campo" id="correo" type="email" inputmode="email" autocomplete="off" placeholder="nombre@ejemplo.com" @bind="correo" @bind:event="oninput" />
+<button class="boton boton-secundario" id="copiar" disabled="@string.IsNullOrWhiteSpace(correo)" @onclick="CopiarCorreo">Copiar correo</button>
+@if (mensajeCopia is not null)
+{
+    <p id="copia">@mensajeCopia</p>
+}
 
-<h2>Opción B: dos toques</h2>
-<button class="boton" id="crear" disabled="@ocupado" @onclick="CrearAsync">1. Crear Excel</button>
-<button class="boton" id="compartir" disabled="@(ocupado || archivo is null)" @onclick="CompartirCreado">2. Compartir</button>
+<h2>Enviar</h2>
+<button class="boton" id="enviar" disabled="@ocupado" @onclick="CrearYEnviar">Enviar Excel</button>
+
+@if (guardado)
+{
+    <div class="aviso" id="aviso-guardado">
+        <p><strong>Guardado en Descargas:</strong> @NombreArchivo</p>
+        <p>Toca "Abrir correo" y adjunta el archivo desde Descargas.</p>
+        @if (!string.IsNullOrWhiteSpace(correo))
+        {
+            <a class="boton" id="abrir-correo" href="@EnlaceCorreo">Abrir correo</a>
+        }
+        <p>El archivo seguirá en Descargas hasta que lo borres, aunque borres los datos en la app.</p>
+    </div>
+}
+
+<h2>Diagnóstico: dos toques</h2>
+<p>Separa crear de enviar, para saber si el tiempo de creación afecta a Compartir.</p>
+<button class="boton boton-secundario" id="crear" disabled="@ocupado" @onclick="CrearAsync">1. Crear Excel</button>
+<button class="boton boton-secundario" id="enviar-creado" disabled="@(ocupado || archivo is null)" @onclick="EnviarCreado">2. Enviar Excel</button>
 
 <h2>Resultado</h2>
 <ul id="resultado">
     <li>Tiempo de creación: @(milisegundos is null ? "-" : $"{milisegundos} ms")</li>
     <li>Tamaño: @(archivo is null ? "-" : $"{archivo.Length:N0} bytes")</li>
-    <li>Compartir: @estado</li>
+    <li>Estado: @estado</li>
 </ul>
 
 @code {
-    private const string NombreArchivo = "Gastos_ejemplo.xlsx";
+    private const string NombreArchivo = "Gastos_2026-01-01_a_2026-12-31.xlsx";
 
     private static readonly MovimientoExcel[] Ejemplo =
     [
@@ -34,15 +56,28 @@
     private byte[]? archivo;
     private long? milisegundos;
     private string estado = "-";
+    private string correo = "";
+    private string? mensajeCopia;
+    private bool guardado;
     private bool ocupado;
 
-    private async Task CrearYCompartir()
+    private string EnlaceCorreo =>
+        // La @ queda sin codificar: algunas apps de correo no entienden %40 en el destinatario.
+        $"mailto:{Uri.EscapeDataString(correo.Trim()).Replace("%40", "@")}?subject={Uri.EscapeDataString("Gastos")}";
+
+    private async Task CopiarCorreo()
+    {
+        var copiado = await Compartir.CopiarTextoAsync(correo.Trim());
+        mensajeCopia = copiado ? "Correo copiado." : "No se pudo copiar el correo.";
+    }
+
+    private async Task CrearYEnviar()
     {
         // Sin pausas antes de compartir: el navegador solo lo permite justo después del toque.
         try
         {
             CrearArchivo();
-            estado = await Compartir.CompartirExcelAsync(NombreArchivo, archivo!);
+            await Enviar();
         }
         catch (Exception error)
         {
@@ -53,6 +88,7 @@
     private async Task CrearAsync()
     {
         ocupado = true;
+        guardado = false;
         estado = "Creando...";
         StateHasChanged();
         // Le da tiempo a la pantalla para mostrar "Creando..." antes de ocupar el procesador.
@@ -61,7 +97,7 @@
         try
         {
             CrearArchivo();
-            estado = "Listo para compartir";
+            estado = "Listo para enviar";
         }
         catch (Exception error)
         {
@@ -71,9 +107,22 @@
         ocupado = false;
     }
 
-    private async Task CompartirCreado()
+    private async Task EnviarCreado()
     {
-        estado = await Compartir.CompartirExcelAsync(NombreArchivo, archivo!);
+        try
+        {
+            await Enviar();
+        }
+        catch (Exception error)
+        {
+            estado = $"error: {error.Message}";
+        }
+    }
+
+    private async Task Enviar()
+    {
+        estado = await Compartir.CompartirOGuardarExcelAsync(NombreArchivo, archivo!);
+        guardado = estado.StartsWith("guardado");
     }
 
     private void CrearArchivo()
