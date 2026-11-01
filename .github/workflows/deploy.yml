@@ -1,0 +1,56 @@
+name: Publicar en GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Ejecutar pruebas
+        run: dotnet test AppGastos.slnx
+
+      # Debe hacerse antes de publicar: el service worker verifica el hash de
+      # index.html, y cambiarlo después impediría instalar la app sin conexión.
+      - name: Ajustar la ruta base
+        run: sed -i 's|<base href="/" />|<base href="/${{ github.event.repository.name }}/" />|' src/AppGastos/wwwroot/index.html
+
+      - name: Publicar
+        run: dotnet publish src/AppGastos/AppGastos.csproj -c Release -o publicado
+
+      # GitHub Pages responde con 404.html a las rutas que no conoce. Al ser una
+      # copia de index.html, Blazor arranca y muestra la pantalla correcta.
+      - name: Preparar rutas directas
+        run: cp publicado/wwwroot/index.html publicado/wwwroot/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: publicado/wwwroot
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
