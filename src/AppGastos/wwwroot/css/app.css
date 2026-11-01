@@ -17,6 +17,26 @@ body {
     padding: calc(1rem + env(safe-area-inset-top)) calc(1rem + env(safe-area-inset-right)) calc(1rem + env(safe-area-inset-bottom)) calc(1rem + env(safe-area-inset-left));
 }
 
+.boton {
+    display: block;
+    width: 100%;
+    /* 48px es el tamaño mínimo cómodo para tocar con el dedo. */
+    min-height: 48px;
+    margin-bottom: 0.75rem;
+    padding: 0.75rem 1rem;
+    border: 0;
+    border-radius: 8px;
+    color: #ffffff;
+    background: #03173d;
+    font: inherit;
+    text-align: center;
+    text-decoration: none;
+}
+
+    .boton:disabled {
+        opacity: 0.4;
+    }
+
 .valid.modified:not([type=checkbox]) {
     outline: 1px solid #26b050;
 }

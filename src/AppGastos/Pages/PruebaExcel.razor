@@ -1,0 +1,85 @@
+@page "/prueba-excel"
+@using System.Diagnostics
+@inject CompartirArchivos Compartir
+
+<PageTitle>Prueba de Excel</PageTitle>
+
+<h1>Prueba de Excel</h1>
+
+<p>Crea un Excel con datos de ejemplo. Prueba las dos formas de compartir.</p>
+
+<h2>Opción A: un toque</h2>
+<button class="boton" id="un-toque" disabled="@ocupado" @onclick="CrearYCompartir">Crear y compartir</button>
+
+<h2>Opción B: dos toques</h2>
+<button class="boton" id="crear" disabled="@ocupado" @onclick="CrearAsync">1. Crear Excel</button>
+<button class="boton" id="compartir" disabled="@(ocupado || archivo is null)" @onclick="CompartirCreado">2. Compartir</button>
+
+<h2>Resultado</h2>
+<ul id="resultado">
+    <li>Tiempo de creación: @(milisegundos is null ? "-" : $"{milisegundos} ms")</li>
+    <li>Tamaño: @(archivo is null ? "-" : $"{archivo.Length:N0} bytes")</li>
+    <li>Compartir: @estado</li>
+</ul>
+
+@code {
+    private const string NombreArchivo = "Gastos_ejemplo.xlsx";
+
+    private static readonly MovimientoExcel[] Ejemplo =
+    [
+        new(new DateOnly(2026, 1, 1), "Banco-Ejemplo", "Telefonos", 104.24m),
+        new(new DateOnly(2026, 12, 31), "Efectivo", "Comida", 1250.50m),
+    ];
+
+    private byte[]? archivo;
+    private long? milisegundos;
+    private string estado = "-";
+    private bool ocupado;
+
+    private async Task CrearYCompartir()
+    {
+        // Sin pausas antes de compartir: el navegador solo lo permite justo después del toque.
+        try
+        {
+            CrearArchivo();
+            estado = await Compartir.CompartirExcelAsync(NombreArchivo, archivo!);
+        }
+        catch (Exception error)
+        {
+            estado = $"error: {error.Message}";
+        }
+    }
+
+    private async Task CrearAsync()
+    {
+        ocupado = true;
+        estado = "Creando...";
+        StateHasChanged();
+        // Le da tiempo a la pantalla para mostrar "Creando..." antes de ocupar el procesador.
+        await Task.Delay(50);
+
+        try
+        {
+            CrearArchivo();
+            estado = "Listo para compartir";
+        }
+        catch (Exception error)
+        {
+            estado = $"error: {error.Message}";
+        }
+
+        ocupado = false;
+    }
+
+    private async Task CompartirCreado()
+    {
+        estado = await Compartir.CompartirExcelAsync(NombreArchivo, archivo!);
+    }
+
+    private void CrearArchivo()
+    {
+        var reloj = Stopwatch.StartNew();
+        archivo = ExportadorExcel.Crear(Ejemplo);
+        milisegundos = reloj.ElapsedMilliseconds;
+    }
+}
