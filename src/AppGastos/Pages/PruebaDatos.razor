@@ -13,7 +13,7 @@
 <p>Suma: <strong id="total-suma">@Monto(transacciones.Sum(t => t.Monto))</strong></p>
 
 <button class="boton" id="anadir" @onclick="AnadirEjemplos">Añadir 3 de ejemplo</button>
-<button class="boton boton-secundario" id="borrar-enero" @onclick="BorrarEnero">Borrar del 1/1/2026 al 1/31/2026</button>
+<button class="boton" id="borrar-enero" @onclick="BorrarEnero">Borrar del 1/1/2026 al 1/31/2026</button>
 
 <ul class="lista" id="lista">
     @foreach (var transaccion in transacciones)
@@ -24,8 +24,8 @@
                 @transaccion.CuentaOrigen → @transaccion.CuentaGasto (@transaccion.MetodoPago)
             </span>
             <span class="lista-acciones">
-                <button class="boton boton-secundario" @onclick="() => SumarUno(transaccion)">+1</button>
-                <button class="boton boton-secundario" @onclick="() => Borrar(transaccion)">Borrar</button>
+                <button class="boton" @onclick="() => SumarUno(transaccion)">+1</button>
+                <button class="boton" @onclick="() => Borrar(transaccion)">Borrar</button>
             </span>
         </li>
     }
@@ -36,12 +36,12 @@
     <li>Cuentas de origen: <span id="cuentas-origen">@cuentasOrigen.Length</span></li>
     <li>Cuentas de gasto: <span id="cuentas-gasto">@cuentasGasto.Length</span></li>
 </ul>
-<button class="boton boton-secundario" id="guardar-cuentas" @onclick="GuardarCuentas">Guardar cuentas de ejemplo</button>
+<button class="boton" id="guardar-cuentas" @onclick="GuardarCuentas">Guardar cuentas de ejemplo</button>
 
 <h2>Correo</h2>
 <label class="etiqueta" for="correo">Correo guardado</label>
 <input class="campo" id="correo" type="email" inputmode="email" autocomplete="off" placeholder="nombre@ejemplo.com" @bind="correo" @bind:event="oninput" />
-<button class="boton boton-secundario" id="guardar-correo" disabled="@string.IsNullOrWhiteSpace(correo)" @onclick="GuardarCorreo">Guardar correo</button>
+<button class="boton" id="guardar-correo" disabled="@string.IsNullOrWhiteSpace(correo)" @onclick="GuardarCorreo">Guardar correo</button>
 
 <h2>Estado</h2>
 <ul id="estado">
@@ -100,13 +100,12 @@
 
     private Task GuardarCuentas() => Intentar("Cuentas guardadas", async () =>
     {
-        await Almacen.ReemplazarCuentasOrigenAsync(
+        await Almacen.ReemplazarCatalogoAsync(
         [
             new CuentaOrigen { Nombre = "Efectivo", Tipo = TipoCuentaOrigen.Efectivo },
             new CuentaOrigen { Nombre = "Banco-Ejemplo", Tipo = TipoCuentaOrigen.Banco },
             new CuentaOrigen { Nombre = "Tarjeta-Ejemplo", Tipo = TipoCuentaOrigen.TarjetaCredito },
-        ]);
-        await Almacen.ReemplazarCuentasGastoAsync(
+        ],
         [
             new CuentaGasto { Nombre = "Comida" },
             new CuentaGasto { Nombre = "Telefonos" },

@@ -21,33 +21,25 @@ public class AlmacenTests
             InvokeAsync<TValue>(identifier, args);
     }
 
+    // Un arreglo pasado solo se convertiría en varios argumentos, uno por cuenta.
     [Fact]
-    public async Task ReemplazarCuentasOrigen_EnviaLaListaComoUnSoloArgumento()
+    public async Task ReemplazarCatalogo_EnviaCadaListaComoUnSoloArgumento()
     {
         var js = new JsFalso();
 
-        await new Almacen(js).ReemplazarCuentasOrigenAsync(
+        await new Almacen(js).ReemplazarCatalogoAsync(
         [
             new CuentaOrigen { Nombre = "Efectivo", Tipo = TipoCuentaOrigen.Efectivo },
             new CuentaOrigen { Nombre = "Banco-Ejemplo", Tipo = TipoCuentaOrigen.Banco },
-        ]);
-
-        var argumento = Assert.Single(js.Argumentos!);
-        Assert.Equal(2, Assert.IsType<CuentaOrigen[]>(argumento).Length);
-    }
-
-    [Fact]
-    public async Task ReemplazarCuentasGasto_EnviaLaListaComoUnSoloArgumento()
-    {
-        var js = new JsFalso();
-
-        await new Almacen(js).ReemplazarCuentasGastoAsync(
+            new CuentaOrigen { Nombre = "Tarjeta-Ejemplo", Tipo = TipoCuentaOrigen.TarjetaCredito },
+        ],
         [
             new CuentaGasto { Nombre = "Comida" },
             new CuentaGasto { Nombre = "Telefonos" },
         ]);
 
-        var argumento = Assert.Single(js.Argumentos!);
-        Assert.Equal(2, Assert.IsType<CuentaGasto[]>(argumento).Length);
+        Assert.Equal(2, js.Argumentos!.Length);
+        Assert.Equal(3, Assert.IsType<CuentaOrigen[]>(js.Argumentos[0]).Length);
+        Assert.Equal(2, Assert.IsType<CuentaGasto[]>(js.Argumentos[1]).Length);
     }
 }

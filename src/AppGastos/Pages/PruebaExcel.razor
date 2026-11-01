@@ -10,7 +10,7 @@
 
 <label class="etiqueta" for="correo">Correo de destino</label>
 <input class="campo" id="correo" type="email" inputmode="email" autocomplete="off" placeholder="nombre@ejemplo.com" @bind="correo" @bind:event="oninput" />
-<button class="boton boton-secundario" id="copiar" disabled="@string.IsNullOrWhiteSpace(correo)" @onclick="CopiarCorreo">Copiar correo</button>
+<button class="boton" id="copiar" disabled="@string.IsNullOrWhiteSpace(correo)" @onclick="CopiarCorreo">Copiar correo</button>
 @if (mensajeCopia is not null)
 {
     <p id="copia">@mensajeCopia</p>
@@ -34,8 +34,8 @@
 
 <h2>Diagnóstico: dos toques</h2>
 <p>Separa crear de enviar, para saber si el tiempo de creación afecta a Compartir.</p>
-<button class="boton boton-secundario" id="crear" disabled="@ocupado" @onclick="CrearAsync">1. Crear Excel</button>
-<button class="boton boton-secundario" id="enviar-creado" disabled="@(ocupado || archivo is null)" @onclick="EnviarCreado">2. Enviar Excel</button>
+<button class="boton" id="crear" disabled="@ocupado" @onclick="CrearAsync">1. Crear Excel</button>
+<button class="boton" id="enviar-creado" disabled="@(ocupado || archivo is null)" @onclick="EnviarCreado">2. Enviar Excel</button>
 
 <h2>Resultado</h2>
 <ul id="resultado">

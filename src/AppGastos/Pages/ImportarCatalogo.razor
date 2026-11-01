@@ -1,0 +1,200 @@
+@page "/importar"
+@using AppGastos.Modelos
+@inject Almacen Almacen
+@inject CompartirArchivos Compartir
+
+<PageTitle>Importar catálogo</PageTitle>
+
+<h1>Importar catálogo</h1>
+
+<p id="catalogo-actual">
+    @if (cuentasOrigenActuales + cuentasGastoActuales == 0)
+    {
+        <text>Aún no hay catálogo. Importa tu Excel de cuentas para empezar.</text>
+    }
+    else
+    {
+        <text>Catálogo actual: @cuentasOrigenActuales cuentas de origen y @cuentasGastoActuales cuentas de gasto.</text>
+    }
+</p>
+
+@if (mensaje is not null)
+{
+    <div class="mensaje @(mensajeEsError ? "mensaje-error" : "mensaje-exito")" id="mensaje" role="status">@mensaje</div>
+}
+
+<label class="boton @(ocupado ? "boton-inactivo" : "")" for="archivo">Escoger archivo de Excel</label>
+@* La clave cambia tras cada lectura: sin esto, escoger el mismo archivo otra vez no haría nada. *@
+<InputFile @key="claveSelector" id="archivo" class="visualmente-oculto" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" disabled="@ocupado" OnChange="LeerArchivo" />
+<p>En modo avión, el archivo debe estar guardado en el teléfono, no solo en la nube ni en un correo.</p>
+
+@if (lectura is { EsValido: false })
+{
+    <div class="mensaje mensaje-error" id="errores" role="alert">
+        <p><strong>No se importó nada. Corrige el archivo e inténtalo otra vez:</strong></p>
+        <ul>
+            @foreach (var error in lectura.Errores)
+            {
+                <li>@error</li>
+            }
+        </ul>
+    </div>
+}
+
+@if (lectura is { EsValido: true })
+{
+    <h2>Vista previa</h2>
+    <p>Archivo: @nombreArchivo</p>
+
+    <div id="vista-previa">
+        @foreach (var tipo in Enum.GetValues<TipoCuentaOrigen>())
+        {
+            var cuentas = lectura.CuentasOrigen.Where(c => c.Tipo == tipo).OrderBy(c => c.Nombre, StringComparer.CurrentCultureIgnoreCase).ToList();
+            @if (cuentas.Count > 0)
+            {
+                <h3>@ImportadorCatalogo.TextoTipo(tipo) (@cuentas.Count)</h3>
+                <ul>
+                    @foreach (var cuenta in cuentas)
+                    {
+                        <li>@cuenta.Nombre</li>
+                    }
+                </ul>
+            }
+        }
+
+        <h3>Cuentas de gasto (@lectura.CuentasGasto.Count)</h3>
+        <ul>
+            @foreach (var cuenta in lectura.CuentasGasto.OrderBy(c => c.Nombre, StringComparer.CurrentCultureIgnoreCase))
+            {
+                <li>@cuenta.Nombre</li>
+            }
+        </ul>
+    </div>
+
+    @if (cuentasOrigenActuales + cuentasGastoActuales > 0)
+    {
+        <div class="aviso">Esto reemplazará el catálogo actual. Las transacciones ya registradas no cambian.</div>
+    }
+    <button class="boton" id="importar" disabled="@ocupado" @onclick="Importar">Importar catálogo</button>
+}
+
+<h2>¿No tienes el archivo?</h2>
+<p>La plantilla es un Excel con las hojas y columnas correctas, y con cuentas de ejemplo que debes reemplazar por las tuyas.</p>
+<button class="boton" id="plantilla" disabled="@ocupado" @onclick="GuardarPlantilla">Crear plantilla</button>
+
+@if (cuentasOrigenActuales + cuentasGastoActuales > 0)
+{
+    <p><a class="boton" id="ir-inicio" href="./">Ir al inicio</a></p>
+}
+
+@code {
+    private const long TamanoMaximo = 5 * 1024 * 1024;
+
+    private ResultadoImportacion? lectura;
+    private string nombreArchivo = "";
+    private int cuentasOrigenActuales;
+    private int cuentasGastoActuales;
+    private int claveSelector;
+    private bool ocupado;
+    private string? mensaje;
+    private bool mensajeEsError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await CargarCatalogoActual();
+        }
+        catch (Exception error)
+        {
+            MostrarError($"No se pudo leer el catálogo guardado: {error.Message}");
+        }
+    }
+
+    private async Task LeerArchivo(InputFileChangeEventArgs evento)
+    {
+        ocupado = true;
+        lectura = null;
+        mensaje = null;
+        nombreArchivo = evento.File.Name;
+
+        try
+        {
+            if (evento.File.Size > TamanoMaximo)
+            {
+                MostrarError("El archivo es demasiado grande. El máximo es de 5 MB.");
+                return;
+            }
+
+            // Blazor solo permite leer el archivo de forma asíncrona, y ClosedXML necesita poder recorrerlo.
+            using var memoria = new MemoryStream();
+            await using (var entrada = evento.File.OpenReadStream(TamanoMaximo))
+            {
+                await entrada.CopyToAsync(memoria);
+            }
+            memoria.Position = 0;
+            lectura = ImportadorCatalogo.Leer(memoria);
+        }
+        catch (Exception error)
+        {
+            MostrarError($"No se pudo abrir el archivo: {error.Message}");
+        }
+        finally
+        {
+            ocupado = false;
+            claveSelector++;
+        }
+    }
+
+    private async Task Importar()
+    {
+        ocupado = true;
+        try
+        {
+            await Almacen.ReemplazarCatalogoAsync(lectura!.CuentasOrigen, lectura.CuentasGasto);
+            mensaje = $"Catálogo importado: {lectura.CuentasOrigen.Count} cuentas de origen y {lectura.CuentasGasto.Count} cuentas de gasto. Las transacciones no cambiaron.";
+            mensajeEsError = false;
+            lectura = null;
+            await CargarCatalogoActual();
+        }
+        catch (Exception error)
+        {
+            MostrarError($"No se pudo guardar el catálogo. El catálogo anterior sigue igual. Detalle: {error.Message}");
+        }
+        finally
+        {
+            ocupado = false;
+        }
+    }
+
+    private async Task GuardarPlantilla()
+    {
+        try
+        {
+            var estado = await Compartir.CompartirOGuardarExcelAsync(PlantillaCatalogo.NombreArchivo, PlantillaCatalogo.Crear());
+            mensajeEsError = false;
+            mensaje = estado switch
+            {
+                "compartido" => "Plantilla compartida.",
+                "cancelado" => "No se compartió la plantilla.",
+                _ => $"Plantilla guardada en Descargas: {PlantillaCatalogo.NombreArchivo}",
+            };
+        }
+        catch (Exception error)
+        {
+            MostrarError($"No se pudo crear la plantilla: {error.Message}");
+        }
+    }
+
+    private async Task CargarCatalogoActual()
+    {
+        cuentasOrigenActuales = (await Almacen.ListarCuentasOrigenAsync()).Length;
+        cuentasGastoActuales = (await Almacen.ListarCuentasGastoAsync()).Length;
+    }
+
+    private void MostrarError(string texto)
+    {
+        mensaje = texto;
+        mensajeEsError = true;
+    }
+}

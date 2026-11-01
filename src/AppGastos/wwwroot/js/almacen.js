@@ -95,12 +95,10 @@ window.appGastos = window.appGastos || {};
         });
     }
 
-    function reemplazarTodo(almacen, elementos) {
-        return ejecutar(almacen, "readwrite", transaccion => {
-            const destino = transaccion.objectStore(almacen);
-            destino.clear();
-            elementos.forEach(elemento => destino.put(elemento));
-        });
+    function reemplazarAlmacen(transaccion, almacen, elementos) {
+        const destino = transaccion.objectStore(almacen);
+        destino.clear();
+        elementos.forEach(elemento => destino.put(elemento));
     }
 
     window.appGastos.almacen = {
@@ -150,9 +148,12 @@ window.appGastos = window.appGastos || {};
         },
 
         listarCuentasOrigen: () => listarTodo(CUENTAS_ORIGEN),
-        reemplazarCuentasOrigen: cuentas => reemplazarTodo(CUENTAS_ORIGEN, cuentas),
         listarCuentasGasto: () => listarTodo(CUENTAS_GASTO),
-        reemplazarCuentasGasto: cuentas => reemplazarTodo(CUENTAS_GASTO, cuentas),
+
+        reemplazarCatalogo: (cuentasOrigen, cuentasGasto) => ejecutar([CUENTAS_ORIGEN, CUENTAS_GASTO], "readwrite", transaccion => {
+            reemplazarAlmacen(transaccion, CUENTAS_ORIGEN, cuentasOrigen);
+            reemplazarAlmacen(transaccion, CUENTAS_GASTO, cuentasGasto);
+        }),
 
         obtenerAjuste: clave => ejecutar(AJUSTES, "readonly", (transaccion, salida) => {
             const solicitud = transaccion.objectStore(AJUSTES).get(clave);

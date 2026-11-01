@@ -1,4 +1,6 @@
 ﻿@page "/"
+@inject Almacen Almacen
+@inject NavigationManager Navegacion
 
 <PageTitle>AppGastos</PageTitle>
 
@@ -6,5 +8,18 @@
 
 <p>La app está instalada. Aquí se registrarán los gastos.</p>
 
+<p><a class="boton" href="importar">Importar catálogo</a></p>
 <p><a class="boton" href="prueba-excel">Prueba de Excel</a></p>
 <p><a class="boton" href="prueba-datos">Prueba de datos</a></p>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Sin catálogo no se puede registrar nada, así que se empieza por importarlo.
+        var cuentasGasto = await Almacen.ListarCuentasGastoAsync();
+        if (cuentasGasto.Length == 0)
+        {
+            Navegacion.NavigateTo("importar", replace: true);
+        }
+    }
+}
