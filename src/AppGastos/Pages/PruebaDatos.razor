@@ -7,21 +7,21 @@
 
 <h1>Prueba de datos</h1>
 
-<div class="aviso">Pantalla temporal. Aquí se ven las transacciones que registraste, y también se mezclan con ellas los ejemplos que añadas. "Borrar del 1/1/2026 al 1/31/2026" borra también las reales de esas fechas.</div>
+<div class="aviso">Pantalla temporal. Aquí se ven las transacciones que registraste, y también se mezclan con ellas los ejemplos que añadas. El botón de borrar enero de 2026 borra también las reales de esas fechas.</div>
 
 <h2>Transacciones: <span id="total-cantidad">@transacciones.Length</span></h2>
 <p>Suma: <strong id="total-suma">@Monto(transacciones.Sum(t => t.Monto))</strong></p>
 
 <button class="boton" id="anadir" @onclick="AnadirEjemplos">Añadir 3 de ejemplo</button>
 <button class="boton" id="anadir-ingreso" @onclick="AnadirIngreso">Añadir ingreso de ejemplo</button>
-<button class="boton" id="borrar-enero" @onclick="BorrarEnero">Borrar del 1/1/2026 al 1/31/2026</button>
+<button class="boton" id="borrar-enero" @onclick="BorrarEnero">Borrar desde @FormatoFecha.EnPalabras(InicioEnero) hasta @FormatoFecha.EnPalabras(FinEnero)</button>
 
 <ul class="lista" id="lista">
     @foreach (var transaccion in transacciones)
     {
         <li class="lista-fila">
             <span>
-                <strong>@transaccion.Fecha.ToString("M/d/yyyy", CultureInfo.InvariantCulture) · @Monto(transaccion.Monto)</strong><br />
+                <strong>@FormatoFecha.EnPalabras(transaccion.Fecha) · @Monto(transaccion.Monto)</strong><br />
                 @transaccion.Tipo: @transaccion.CuentaOrigen → @transaccion.CuentaDestino (@(transaccion.MetodoPago?.ToString() ?? "sin método"))
             </span>
             <span class="lista-acciones">
@@ -51,6 +51,9 @@
 </ul>
 
 @code {
+    private static readonly DateOnly InicioEnero = new(2026, 1, 1);
+    private static readonly DateOnly FinEnero = new(2026, 1, 31);
+
     private Transaccion[] transacciones = [];
     private CuentaOrigen[] cuentasOrigen = [];
     private CuentaGasto[] cuentasGasto = [];
@@ -94,7 +97,7 @@
         var borradas = 0;
         var mensaje = () => $"Transacciones de enero borradas: {borradas}";
         await Intentar("", async () =>
-            borradas = await Almacen.BorrarTransaccionesPorRangoAsync(new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 31)));
+            borradas = await Almacen.BorrarTransaccionesPorRangoAsync(InicioEnero, FinEnero));
         if (!estado.StartsWith("error"))
         {
             estado = mensaje();

@@ -35,7 +35,12 @@ else
     }
 
     <label class="etiqueta" for="fecha">Fecha</label>
+    @* El teléfono muestra este campo en su propio formato, por eso debajo se escribe en palabras. *@
     <input class="campo" id="fecha" type="date" @bind="borrador.Fecha" @bind:after="AlCambiar" />
+    @if (borrador.Fecha is { } fechaEscogida)
+    {
+        <p class="fecha-palabras" id="fecha-palabras">@FormatoFecha.EnPalabras(fechaEscogida)</p>
+    }
 
     <label class="etiqueta" for="monto">Monto, en dólares</label>
     @* Es texto con teclado numérico: type="number" depende del idioma y puede borrar lo escrito sin avisar. *@
@@ -244,9 +249,8 @@ else
     private static string Resumen(Transaccion t)
     {
         var monto = t.Monto.ToString("N2", CultureInfo.InvariantCulture);
-        var fecha = t.Fecha.ToString("M/d/yyyy", CultureInfo.InvariantCulture);
         var guardado = t.Tipo == TipoTransaccion.Transferencia ? "guardada" : "guardado";
-        return $"{t.Tipo} {guardado}: ${monto} el {fecha}, de {t.CuentaOrigen} a {t.CuentaDestino}.";
+        return $"{t.Tipo} {guardado}: ${monto}. {FormatoFecha.EnPalabras(t.Fecha)}. De {t.CuentaOrigen} a {t.CuentaDestino}.";
     }
 
     public void Dispose() => reloj?.Dispose();
