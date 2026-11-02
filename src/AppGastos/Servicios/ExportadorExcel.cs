@@ -28,7 +28,7 @@ public static class ExportadorExcel
         var fila = 2;
         foreach (var movimiento in movimientos)
         {
-            // La misma regla para gastos e ingresos: solo cambia qué cuenta es el origen y cuál el destino.
+            // La misma regla para gastos, ingresos y transferencias: solo cambia qué cuenta es el origen y cuál el destino.
             EscribirFila(hoja, fila++, movimiento.Fecha, movimiento.CuentaOrigen, movimiento.CuentaDestino, ColumnaCredit, movimiento.Monto);
             EscribirFila(hoja, fila++, movimiento.Fecha, movimiento.CuentaDestino, movimiento.CuentaOrigen, ColumnaDebit, movimiento.Monto);
         }

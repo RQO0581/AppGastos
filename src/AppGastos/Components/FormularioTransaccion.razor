@@ -138,9 +138,9 @@ else if (Borrador.Tipo != TipoTransaccion.Gasto || Borrador.Metodo is not null)
         AlCambiar();
     }
 
-    private void CambiarMonto(string entrada)
+    private void CambiarMonto(string? entrada)
     {
-        Borrador.EscribirMonto(entrada);
+        Borrador.EscribirMonto(entrada ?? "");
         AlCambiar();
     }
 

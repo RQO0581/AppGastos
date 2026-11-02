@@ -1,0 +1,239 @@
+@page "/exportar"
+@using AppGastos.Modelos
+@inject Almacen Almacen
+@inject CompartirArchivos Compartir
+
+<PageTitle>Exportar</PageTitle>
+
+<h1>Exportar</h1>
+
+<p>Escoge un rango de fechas, o déjalo vacío para exportar todas las transacciones.</p>
+
+<label class="etiqueta" for="desde">Desde</label>
+<input class="campo" id="desde" type="date" @bind="desde" @bind:after="CargarTransacciones" />
+@if (desde is { } fechaDesde)
+{
+    <p class="fecha-palabras" id="desde-palabras">@FormatoFecha.EnPalabras(fechaDesde)</p>
+}
+
+<label class="etiqueta" for="hasta">Hasta</label>
+<input class="campo" id="hasta" type="date" @bind="hasta" @bind:after="CargarTransacciones" />
+@if (hasta is { } fechaHasta)
+{
+    <p class="fecha-palabras" id="hasta-palabras">@FormatoFecha.EnPalabras(fechaHasta)</p>
+}
+
+@if (desde is not null || hasta is not null)
+{
+    <button type="button" class="boton" id="quitar-fechas" @onclick="QuitarFechas">Quitar las fechas</button>
+}
+
+@if (!ExportacionTransacciones.RangoEsValido(desde, hasta))
+{
+    <div class="mensaje mensaje-error" id="rango-invalido" role="alert">La fecha "Desde" no puede ser después de la fecha "Hasta".</div>
+}
+else if (transacciones is { Count: 0 })
+{
+    <div class="aviso" id="sin-transacciones">No hay transacciones para exportar en este rango.</div>
+}
+else if (transacciones is not null)
+{
+    <ul class="totales" id="totales">
+        @foreach (var total in ResumenHistorial.Totales(transacciones))
+        {
+            <li id="total-@total.Tipo">
+                <span>@TextoTransaccion.Plural(total.Tipo) (@total.Cantidad)</span>
+                <strong>@TextoTransaccion.Monto(total.Suma)</strong>
+            </li>
+        }
+    </ul>
+}
+
+<label class="etiqueta" for="correo">Correo de destino</label>
+<input class="campo" id="correo" type="email" inputmode="email" autocomplete="off" placeholder="nombre@ejemplo.com" @bind="correo" @bind:after="GuardarCorreoEscrito" />
+<button type="button" class="boton" id="copiar" disabled="@string.IsNullOrWhiteSpace(correo)" @onclick="CopiarCorreo">Copiar el correo</button>
+
+@* Tomar el foco hace que el teléfono desplace la pantalla hasta el mensaje. *@
+<div @ref="zonaMensaje" id="zona-mensaje" tabindex="-1">
+    @if (mensaje is not null)
+    {
+        <div class="@claseMensaje" id="mensaje" role="status">@mensaje</div>
+    }
+    @if (archivoGuardado is not null)
+    {
+        <div class="aviso" id="aviso-guardado">
+            <p><strong>Guardado en Descargas:</strong> @archivoGuardado</p>
+            <p>Toca "Abrir correo" y adjunta el archivo desde Descargas.</p>
+            <a class="boton" id="abrir-correo" href="@ExportacionTransacciones.EnlaceCorreo(correo)">Abrir correo</a>
+            <p>El archivo seguirá en Descargas hasta que lo borres, aunque borres los datos en la app. El correo sale cuando haya conexión.</p>
+        </div>
+    }
+</div>
+
+<button type="button" class="boton" id="exportar" disabled="@(ocupado || transacciones is not { Count: > 0 })" @onclick="ExportarExcel">@(ocupado ? "Creando el Excel…" : "Exportar a Excel")</button>
+
+@code {
+    private const string ClaseExito = "mensaje mensaje-exito";
+    private const string ClaseError = "mensaje mensaje-error";
+
+    private DateOnly? desde;
+    private DateOnly? hasta;
+    private string correo = "";
+    private List<Transaccion>? transacciones;
+    private int ultimaLectura;
+    private string? mensaje;
+    private string claseMensaje = ClaseExito;
+    private string? archivoGuardado;
+    private bool ocupado;
+    private bool enfocarMensaje;
+    private ElementReference zonaMensaje;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            correo = await Almacen.ObtenerCorreoAsync() ?? "";
+        }
+        catch (Exception error)
+        {
+            MostrarError($"No se pudo leer el correo guardado: {error.Message}");
+        }
+        await CargarTransacciones();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (enfocarMensaje)
+        {
+            enfocarMensaje = false;
+            await zonaMensaje.FocusAsync();
+        }
+    }
+
+    // Se leen antes de tocar "Exportar": Safari puede bloquear Compartir si pasa tiempo desde el toque.
+    private async Task CargarTransacciones()
+    {
+        mensaje = null;
+        archivoGuardado = null;
+        transacciones = null;
+        var lectura = ++ultimaLectura;
+
+        if (!ExportacionTransacciones.RangoEsValido(desde, hasta))
+        {
+            return;
+        }
+
+        try
+        {
+            var leidas = await Almacen.ListarTransaccionesAsync(desde, hasta);
+            // Si se cambió la fecha mientras se leía, esta respuesta ya no sirve.
+            if (lectura == ultimaLectura)
+            {
+                transacciones = leidas.ToList();
+            }
+        }
+        catch (Exception error)
+        {
+            MostrarError($"No se pudieron leer las transacciones: {error.Message}");
+        }
+    }
+
+    private async Task QuitarFechas()
+    {
+        desde = null;
+        hasta = null;
+        await CargarTransacciones();
+    }
+
+    private async Task GuardarCorreoEscrito()
+    {
+        if (!ExportacionTransacciones.CorreoEsValido(correo))
+        {
+            return;
+        }
+
+        try
+        {
+            await Almacen.GuardarCorreoAsync(correo.Trim());
+        }
+        catch (Exception error)
+        {
+            MostrarError($"No se pudo guardar el correo: {error.Message}");
+        }
+    }
+
+    private async Task CopiarCorreo()
+    {
+        var copiado = await Compartir.CopiarTextoAsync(correo.Trim());
+        archivoGuardado = null;
+        if (copiado)
+        {
+            MostrarMensaje("Correo copiado.", ClaseExito);
+        }
+        else
+        {
+            MostrarError("No se pudo copiar el correo. Puedes copiarlo a mano desde el campo.");
+        }
+    }
+
+    private async Task ExportarExcel()
+    {
+        archivoGuardado = null;
+        if (!ExportacionTransacciones.CorreoEsValido(correo))
+        {
+            MostrarError(string.IsNullOrWhiteSpace(correo)
+                ? "Falta el correo de destino."
+                : "El correo de destino no parece válido. Debe verse como nombre@ejemplo.com.");
+            return;
+        }
+
+        ocupado = true;
+        try
+        {
+            // Sin pausas antes de compartir: el navegador solo lo permite justo después del toque.
+            var nombre = ExportacionTransacciones.NombreArchivo(desde, hasta, DateOnly.FromDateTime(DateTime.Now));
+            var archivo = ExportadorExcel.Crear(ExportacionTransacciones.Movimientos(transacciones!));
+            var correoGuardado = Almacen.GuardarCorreoAsync(correo.Trim()).AsTask();
+            var estado = await Compartir.CompartirOGuardarExcelAsync(nombre, archivo);
+            await correoGuardado;
+            MostrarResultado(estado, nombre);
+        }
+        catch (Exception error)
+        {
+            MostrarError($"No se pudo crear el Excel: {error.Message}");
+        }
+        finally
+        {
+            ocupado = false;
+        }
+    }
+
+    private void MostrarResultado(string estado, string nombre)
+    {
+        if (estado == "compartido")
+        {
+            MostrarMensaje($"Excel compartido: {nombre}. Tiene {Cantidad()}.", ClaseExito);
+        }
+        else if (estado == "cancelado")
+        {
+            // No es un error, pero tampoco se envió nada: no debe verse como un éxito.
+            MostrarMensaje("No se compartió el Excel. Puedes intentarlo otra vez.", "aviso");
+        }
+        else
+        {
+            archivoGuardado = nombre;
+            MostrarMensaje($"Excel creado. Tiene {Cantidad()}.", ClaseExito);
+        }
+    }
+
+    private string Cantidad() => transacciones!.Count == 1 ? "1 transacción" : $"{transacciones.Count} transacciones";
+
+    private void MostrarError(string texto) => MostrarMensaje(texto, ClaseError);
+
+    private void MostrarMensaje(string texto, string clase)
+    {
+        mensaje = texto;
+        claseMensaje = clase;
+        enfocarMensaje = true;
+    }
+}

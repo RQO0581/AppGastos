@@ -240,7 +240,6 @@ if (etapa === 'conred') {
     await tocar('#menu-mas');
     await esperar(`location.pathname.endsWith('/mas')`);
     bien('Más ya no enlaza a la prueba de datos', (await texto('#ir-prueba-datos')) === '(no está)');
-    bien('Más sigue enlazando a la prueba de Excel', (await texto('#ir-prueba-excel')) !== '(no está)');
     await irA('prueba-datos');
     await esperar(`!!document.querySelector('.menu-inferior')`);
     await dormir(300);
