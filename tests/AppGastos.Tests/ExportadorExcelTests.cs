@@ -80,6 +80,25 @@ public class ExportadorExcelTests
         Assert.Equal("0.00", hoja.Cell("G3").Style.NumberFormat.Format);
     }
 
+    // Un pago de tarjeta: acredita el banco y debita la tarjeta.
+    [Fact]
+    public void Transferencia_PagoDeTarjetaUsaLaMismaRegla()
+    {
+        var pago = new MovimientoExcel(new DateOnly(2026, 1, 10), "Banco-Ejemplo", "Tarjeta-Ejemplo", 200m);
+
+        var hoja = AbrirHoja(ExportadorExcel.Crear([pago]));
+
+        Assert.Equal("Banco-Ejemplo", hoja.Cell("E2").GetString());
+        Assert.Equal("Tarjeta-Ejemplo", hoja.Cell("F2").GetString());
+        Assert.True(hoja.Cell("G2").IsEmpty());
+        Assert.Equal(200, hoja.Cell("H2").GetDouble());
+
+        Assert.Equal("Tarjeta-Ejemplo", hoja.Cell("E3").GetString());
+        Assert.Equal("Banco-Ejemplo", hoja.Cell("F3").GetString());
+        Assert.Equal(200, hoja.Cell("G3").GetDouble());
+        Assert.True(hoja.Cell("H3").IsEmpty());
+    }
+
     [Fact]
     public void GastosEIngresos_VanEnElMismoArchivo()
     {

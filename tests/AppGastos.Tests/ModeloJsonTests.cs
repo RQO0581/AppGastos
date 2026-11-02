@@ -63,6 +63,27 @@ public class ModeloJsonTests
     }
 
     [Fact]
+    public void Transferencia_SeGuardaComoTextoSinMetodoDePago()
+    {
+        var transferencia = new Transaccion
+        {
+            Id = Guid.NewGuid(),
+            Tipo = TipoTransaccion.Transferencia,
+            Fecha = new DateOnly(2026, 1, 10),
+            Monto = 200m,
+            CuentaOrigen = "Banco-Ejemplo",
+            CuentaDestino = "Tarjeta-Ejemplo",
+        };
+
+        var json = JsonSerializer.Serialize(transferencia, Opciones);
+        var copia = JsonSerializer.Deserialize<Transaccion>(json, Opciones)!;
+
+        Assert.Contains("\"tipo\":\"Transferencia\"", json);
+        Assert.Contains("\"metodoPago\":null", json);
+        Assert.Equal(TipoTransaccion.Transferencia, copia.Tipo);
+    }
+
+    [Fact]
     public void Tipo_PorDefectoEsGasto()
     {
         Assert.Equal(TipoTransaccion.Gasto, new Transaccion().Tipo);

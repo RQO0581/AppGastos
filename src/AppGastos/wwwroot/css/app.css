@@ -1,3 +1,7 @@
+:root {
+    --alto-menu: 61px;
+}
+
 * {
     box-sizing: border-box;
 }
@@ -19,8 +23,87 @@ h1:focus {
     max-width: 600px;
     margin: 0 auto;
     /* Respeta la muesca y la barra de gestos del teléfono. */
-    padding: calc(1rem + env(safe-area-inset-top)) calc(1rem + env(safe-area-inset-right)) calc(1rem + env(safe-area-inset-bottom)) calc(1rem + env(safe-area-inset-left));
+    /* Abajo deja espacio para el menú fijo, para que no tape el último botón. */
+    padding: calc(1rem + env(safe-area-inset-top)) calc(1rem + env(safe-area-inset-right)) calc(var(--alto-menu) + 1rem + env(safe-area-inset-bottom)) calc(1rem + env(safe-area-inset-left));
 }
+
+.menu-inferior {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 100;
+    display: flex;
+    gap: 0.5rem;
+    min-height: var(--alto-menu);
+    padding: 0.375rem calc(0.5rem + env(safe-area-inset-right)) calc(0.375rem + env(safe-area-inset-bottom)) calc(0.5rem + env(safe-area-inset-left));
+    border-top: 1px solid #8a8a8a;
+    background: #ffffff;
+}
+
+.menu-enlace {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    border-radius: 8px;
+    color: #0d47a1;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+    .menu-enlace.active {
+        color: #ffffff;
+        background: #1565c0;
+    }
+
+/* Grupo de opciones: se escoge una. La escogida es azul fuerte, las demás azul claro y las no disponibles gris. */
+.opciones {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.opciones-dos {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+}
+
+.opcion {
+    flex: 1 1 auto;
+    min-height: 48px;
+    padding: 0.25rem 0.5rem;
+    border: 2px solid #1565c0;
+    border-radius: 8px;
+    color: #0d47a1;
+    background: #dbe8f8;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+    .opcion[aria-pressed="true"] {
+        color: #ffffff;
+        background: #1565c0;
+    }
+
+    .opcion:disabled {
+        border-color: #c9c9c9;
+        color: #5f5f5f;
+        background: #c9c9c9;
+        cursor: not-allowed;
+    }
+
+#zona-mensaje {
+    /* Evita que el menú fijo tape el mensaje cuando la pantalla se desplaza hasta él. */
+    scroll-margin-bottom: calc(var(--alto-menu) + 5rem + env(safe-area-inset-bottom));
+    scroll-margin-top: 1rem;
+}
+
+    #zona-mensaje:focus {
+        outline: none;
+    }
 
 .boton {
     display: block;
@@ -97,11 +180,15 @@ h1:focus {
 .campo {
     display: block;
     width: 100%;
+    /* Sin esto, el campo de fecha del iPhone puede salirse de la pantalla. */
+    min-width: 0;
     min-height: 48px;
     margin-bottom: 0.75rem;
     padding: 0.5rem 0.75rem;
     border: 1px solid #8a8a8a;
     border-radius: 8px;
+    color: inherit;
+    background: #ffffff;
     font: inherit;
 }
 

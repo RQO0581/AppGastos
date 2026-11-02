@@ -7,7 +7,7 @@
 
 <h1>Prueba de datos</h1>
 
-<p>Guarda datos de ejemplo en el teléfono. Deben seguir aquí al cerrar y abrir la app.</p>
+<div class="aviso">Pantalla temporal. Aquí se ven las transacciones que registraste, y también se mezclan con ellas los ejemplos que añadas. "Borrar del 1/1/2026 al 1/31/2026" borra también las reales de esas fechas.</div>
 
 <h2>Transacciones: <span id="total-cantidad">@transacciones.Length</span></h2>
 <p>Suma: <strong id="total-suma">@Monto(transacciones.Sum(t => t.Monto))</strong></p>
@@ -38,7 +38,6 @@
     <li>Cuentas de gasto: <span id="cuentas-gasto">@cuentasGasto.Length</span></li>
     <li>Cuentas de ingreso: <span id="cuentas-ingreso">@cuentasIngreso.Length</span></li>
 </ul>
-<button class="boton" id="guardar-cuentas" @onclick="GuardarCuentas">Guardar cuentas de ejemplo</button>
 
 <h2>Correo</h2>
 <label class="etiqueta" for="correo">Correo guardado</label>
@@ -111,23 +110,6 @@
 
     private Task Borrar(Transaccion transaccion) => Intentar("Transacción borrada", async () =>
         await Almacen.BorrarTransaccionAsync(transaccion.Id));
-
-    private Task GuardarCuentas() => Intentar("Cuentas guardadas", async () =>
-    {
-        await Almacen.ReemplazarCatalogoAsync(
-        [
-            new CuentaOrigen { Nombre = "Efectivo", Tipo = TipoCuentaOrigen.Efectivo },
-            new CuentaOrigen { Nombre = "Banco-Ejemplo", Tipo = TipoCuentaOrigen.Banco },
-            new CuentaOrigen { Nombre = "Tarjeta-Ejemplo", Tipo = TipoCuentaOrigen.TarjetaCredito },
-        ],
-        [
-            new CuentaGasto { Nombre = "Comida" },
-            new CuentaGasto { Nombre = "Telefonos" },
-        ],
-        [
-            new CuentaIngreso { Nombre = "Ingreso-Ejemplo" },
-        ]);
-    });
 
     private Task GuardarCorreo() => Intentar("Correo guardado", async () =>
         await Almacen.GuardarCorreoAsync(correo.Trim()));
