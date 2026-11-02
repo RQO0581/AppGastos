@@ -206,7 +206,50 @@ h1:focus {
 .lista-fila {
     padding: 0.75rem 0;
     border-bottom: 1px solid #d9d9d9;
+    /* Un nombre de cuenta largo y sin espacios no debe salirse de la pantalla. */
+    overflow-wrap: anywhere;
 }
+
+.navegacion-mes {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+    .navegacion-mes strong {
+        flex: 1;
+        text-align: center;
+    }
+
+    .navegacion-mes .boton {
+        width: auto;
+        margin-bottom: 0;
+        padding: 0.75rem 0.625rem;
+    }
+
+.totales {
+    margin: 0 0 0.75rem;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    background: #eef3fb;
+    list-style: none;
+}
+
+    .totales li {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.25rem 0;
+    }
+
+.confirmar-borrado {
+    margin: 0.5rem 0 0;
+}
+
+    .confirmar-borrado p {
+        margin-top: 0;
+    }
 
 .lista-acciones {
     display: flex;

@@ -36,6 +36,14 @@ public class FormatoFechaTests
         Assert.Contains($" de {esperado} de 2026", FormatoFecha.EnPalabras(new DateOnly(2026, mes, 1)));
     }
 
+    [Theory]
+    [InlineData(1, "Enero de 2026")]
+    [InlineData(11, "Noviembre de 2026")]
+    public void MesEnPalabras_EmpiezaConMayuscula(int mes, string esperado)
+    {
+        Assert.Equal(esperado, FormatoFecha.MesEnPalabras(new DateOnly(2026, mes, 15)));
+    }
+
     // Es el caso que confundía: 02/11 y 11/2 son la misma fecha, y en palabras no hay duda.
     [Fact]
     public void EnPalabras_NoConfundeElDiaConElMes()

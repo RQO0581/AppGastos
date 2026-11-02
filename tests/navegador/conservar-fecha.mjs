@@ -85,10 +85,10 @@ await abrir();
 
 console.log('guardado:', await crudo());
 bien('cada gasto tiene su fecha', enOrden(JSON.parse(await crudo())) === enOrden([['2026-02-11', 3], ['2026-03-15', 1], ['2026-03-15', 2], [hoy, 4]]));
-await tocar('#menu-mas');
-await tocar('#ir-prueba-datos');
-await esperar(`!!document.querySelector('#lista')`, 5000);
+await cdp('Page.navigate', { url: base + 'historial?mes=2026-03' });
+await esperar(`!!document.querySelector('#lista')`, 20000);
 await dormir(400);
 console.log('lista:', await texto('#lista'));
+bien('el historial muestra las dos de marzo', (await evaluar(`document.querySelectorAll('#lista .lista-fila').length`)) === 2);
 console.log('errores en consola:', consola.length ? consola : 'ninguno');
 ws.close();

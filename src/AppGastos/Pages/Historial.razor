@@ -1,0 +1,167 @@
+@page "/historial"
+@using AppGastos.Modelos
+@inject Almacen Almacen
+@inject AvisoPendiente Aviso
+
+<PageTitle>Historial</PageTitle>
+
+<h1>Historial</h1>
+
+<div class="navegacion-mes">
+    <a class="boton" id="mes-anterior" href="historial?mes=@ResumenHistorial.TextoMes(mes.AddMonths(-1))">Anterior</a>
+    <strong id="mes-actual">@FormatoFecha.MesEnPalabras(mes)</strong>
+    <a class="boton" id="mes-siguiente" href="historial?mes=@ResumenHistorial.TextoMes(mes.AddMonths(1))">Siguiente</a>
+</div>
+
+@* Tomar el foco hace que el teléfono desplace la pantalla hasta el mensaje. *@
+<div @ref="zonaMensaje" id="zona-mensaje" tabindex="-1">
+    @if (mensaje is not null)
+    {
+        <div class="mensaje @(mensajeEsError ? "mensaje-error" : "mensaje-exito")" id="mensaje" role="status">@mensaje</div>
+    }
+</div>
+
+@if (transacciones is null)
+{
+    <p id="cargando">Cargando…</p>
+}
+else
+{
+    <ul class="totales" id="totales">
+        @foreach (var total in ResumenHistorial.Totales(transacciones))
+        {
+            <li id="total-@total.Tipo">
+                <span>@TextoTransaccion.Plural(total.Tipo) (@total.Cantidad)</span>
+                <strong>@TextoTransaccion.Monto(total.Suma)</strong>
+            </li>
+        }
+    </ul>
+
+    @if (transacciones.Count == 0)
+    {
+        <p id="sin-transacciones">No hay transacciones en este mes.</p>
+    }
+
+    <ul class="lista" id="lista">
+        @foreach (var transaccion in transacciones)
+        {
+            <li class="lista-fila" @key="transaccion.Id" data-id="@transaccion.Id">
+                <strong>@transaccion.Tipo · @TextoTransaccion.Monto(transaccion.Monto)</strong><br />
+                @FormatoFecha.EnPalabras(transaccion.Fecha)<br />
+                @TextoTransaccion.Cuentas(transaccion)
+                @if (transaccion.Tipo == TipoTransaccion.Gasto)
+                {
+                    <br />
+                    @TextoTransaccion.TextoMetodo(transaccion.MetodoPago)
+                }
+
+                @if (porBorrar == transaccion.Id)
+                {
+                    <div class="aviso confirmar-borrado" role="alert">
+                        <p>@TextoTransaccion.PreguntaBorrar(transaccion) No se puede deshacer.</p>
+                        <span class="lista-acciones">
+                            <button type="button" class="boton confirmar-si" disabled="@ocupado" @onclick="() => Borrar(transaccion)">Sí, borrar</button>
+                            <button type="button" class="boton confirmar-no" disabled="@ocupado" @onclick="() => porBorrar = null">Cancelar</button>
+                        </span>
+                    </div>
+                }
+                else
+                {
+                    <span class="lista-acciones">
+                        <a class="boton accion-editar" href="editar/@transaccion.Id">Editar</a>
+                        <button type="button" class="boton accion-borrar" disabled="@ocupado" @onclick="() => PedirConfirmacion(transaccion)">Borrar</button>
+                    </span>
+                }
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "mes")]
+    public string? TextoDelMes { get; set; }
+
+    private DateOnly mes = ResumenHistorial.PrimerDiaDelMes(DateOnly.FromDateTime(DateTime.Now));
+    private List<Transaccion>? transacciones;
+    private Guid? porBorrar;
+    private string? mensaje;
+    private bool mensajeEsError;
+    private bool ocupado;
+    private bool enfocarMensaje;
+    private ElementReference zonaMensaje;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        mes = ResumenHistorial.LeerMes(TextoDelMes, DateOnly.FromDateTime(DateTime.Now));
+        porBorrar = null;
+        mensaje = null;
+        transacciones = null;
+
+        if (Aviso.Tomar() is { } aviso)
+        {
+            MostrarMensaje(aviso, esError: false);
+        }
+
+        await CargarMes();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (enfocarMensaje)
+        {
+            enfocarMensaje = false;
+            await zonaMensaje.FocusAsync();
+        }
+    }
+
+    private async Task CargarMes()
+    {
+        var mesPedido = mes;
+        try
+        {
+            var leidas = await Almacen.ListarTransaccionesAsync(mesPedido, ResumenHistorial.UltimoDiaDelMes(mesPedido));
+            // Si se tocó otro mes mientras se leía, esta respuesta ya no sirve.
+            if (mesPedido == mes)
+            {
+                transacciones = ResumenHistorial.MasRecientesPrimero(leidas).ToList();
+            }
+        }
+        catch (Exception error)
+        {
+            MostrarMensaje($"No se pudo leer el historial: {error.Message}", esError: true);
+        }
+    }
+
+    private void PedirConfirmacion(Transaccion transaccion)
+    {
+        mensaje = null;
+        porBorrar = transaccion.Id;
+    }
+
+    private async Task Borrar(Transaccion transaccion)
+    {
+        ocupado = true;
+        try
+        {
+            await Almacen.BorrarTransaccionAsync(transaccion.Id);
+            porBorrar = null;
+            MostrarMensaje(TextoTransaccion.Borrada(transaccion), esError: false);
+            await CargarMes();
+        }
+        catch (Exception error)
+        {
+            MostrarMensaje($"No se pudo borrar. La transacción sigue guardada. Detalle: {error.Message}", esError: true);
+        }
+        finally
+        {
+            ocupado = false;
+        }
+    }
+
+    private void MostrarMensaje(string texto, bool esError)
+    {
+        mensaje = texto;
+        mensajeEsError = esError;
+        enfocarMensaje = true;
+    }
+}

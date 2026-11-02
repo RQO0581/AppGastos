@@ -14,4 +14,11 @@ public static class FormatoFecha
     // Por ejemplo: "Lunes, 2 de noviembre de 2026".
     public static string EnPalabras(DateOnly fecha) =>
         $"{Dias[(int)fecha.DayOfWeek]}, {fecha.Day} de {Meses[fecha.Month - 1]} de {fecha.Year}";
+
+    // Por ejemplo: "Noviembre de 2026".
+    public static string MesEnPalabras(DateOnly fecha)
+    {
+        var mes = Meses[fecha.Month - 1];
+        return $"{char.ToUpperInvariant(mes[0])}{mes[1..]} de {fecha.Year}";
+    }
 }

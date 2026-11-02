@@ -1,0 +1,65 @@
+@page "/editar/{Id:guid}"
+@using AppGastos.Modelos
+@inject Almacen Almacen
+@inject AvisoPendiente Aviso
+@inject NavigationManager Navegacion
+
+<PageTitle>Editar</PageTitle>
+
+<h1>Editar</h1>
+
+@if (error is not null)
+{
+    <div class="mensaje mensaje-error" id="error-carga" role="alert">@error</div>
+    <p><a class="boton" id="volver" href="historial">Ir al historial</a></p>
+}
+else if (borrador is null)
+{
+    <p>Cargando…</p>
+}
+else
+{
+    <FormularioTransaccion Borrador="borrador" IdExistente="Id" Guardar="GuardarCambios" />
+    <a class="boton" id="cancelar" href="historial?mes=@ResumenHistorial.TextoMes(original!.Fecha)">Cancelar</a>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private Transaccion? original;
+    private BorradorTransaccion? borrador;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            original = await Almacen.ObtenerTransaccionAsync(Id);
+            if (original is null)
+            {
+                error = "Esta transacción ya no existe.";
+                return;
+            }
+
+            var catalogo = new CatalogoCuentas(
+                await Almacen.ListarCuentasOrigenAsync(),
+                await Almacen.ListarCuentasGastoAsync(),
+                await Almacen.ListarCuentasIngresoAsync());
+            borrador = BorradorTransaccion.DesdeTransaccion(catalogo, original);
+        }
+        catch (Exception problema)
+        {
+            error = $"No se pudo abrir la transacción: {problema.Message}";
+        }
+    }
+
+    private async Task<string?> GuardarCambios(Transaccion editada)
+    {
+        await Almacen.GuardarTransaccionAsync(editada);
+        Aviso.Dejar(TextoTransaccion.Cambios(original!, editada));
+        // Se abre el mes de la fecha nueva, para que se vea el resultado aunque la fecha haya cambiado de mes.
+        Navegacion.NavigateTo($"historial?mes={ResumenHistorial.TextoMes(editada.Fecha)}");
+        return null;
+    }
+}

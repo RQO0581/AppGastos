@@ -1,5 +1,4 @@
 ﻿@page "/"
-@using System.Globalization
 @using AppGastos.Modelos
 @implements IDisposable
 @inject Almacen Almacen
@@ -85,14 +84,7 @@ else
         // La fecha se conserva: ayuda al registrar varios recibos del mismo día.
         borrador = new BorradorTransaccion(catalogo!, Hoy()) { Fecha = transaccion.Fecha };
         StateHasChanged();
-        return Resumen(transaccion);
-    }
-
-    private static string Resumen(Transaccion t)
-    {
-        var monto = t.Monto.ToString("N2", CultureInfo.InvariantCulture);
-        var guardado = t.Tipo == TipoTransaccion.Transferencia ? "guardada" : "guardado";
-        return $"{t.Tipo} {guardado}: ${monto}. {FormatoFecha.EnPalabras(t.Fecha)}. De {t.CuentaOrigen} a {t.CuentaDestino}.";
+        return TextoTransaccion.Guardada(transaccion);
     }
 
     public void Dispose() => reloj?.Dispose();
