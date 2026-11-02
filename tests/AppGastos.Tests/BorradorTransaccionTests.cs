@@ -336,6 +336,283 @@ public class BorradorTransaccionTests
         Assert.Equal(destino, transaccion.CuentaDestino);
     }
 
+    private static Transaccion GastoGuardado(string origen = "Banco-Ejemplo", string destino = "Telefonos", MetodoPago metodo = MetodoPago.AthMovil) => new()
+    {
+        Id = Guid.NewGuid(),
+        Tipo = TipoTransaccion.Gasto,
+        Fecha = new DateOnly(2026, 1, 15),
+        Monto = 1250.5m,
+        MetodoPago = metodo,
+        CuentaOrigen = origen,
+        CuentaDestino = destino,
+    };
+
+    private static Transaccion Guardada(TipoTransaccion tipo, string origen, string destino) => new()
+    {
+        Id = Guid.NewGuid(),
+        Tipo = tipo,
+        Fecha = new DateOnly(2026, 1, 15),
+        Monto = 200m,
+        CuentaOrigen = origen,
+        CuentaDestino = destino,
+    };
+
+    [Fact]
+    public void Editar_CargaTodosLosDatos()
+    {
+        var borrador = BorradorTransaccion.DesdeTransaccion(Catalogo, GastoGuardado());
+
+        Assert.Equal(TipoTransaccion.Gasto, borrador.Tipo);
+        Assert.Equal(new DateOnly(2026, 1, 15), borrador.Fecha);
+        Assert.Equal("1250.50", borrador.TextoMonto);
+        Assert.Equal(MetodoPago.AthMovil, borrador.Metodo);
+        Assert.Equal("Banco-Ejemplo", borrador.Origen);
+        Assert.Equal("Telefonos", borrador.Destino);
+        Assert.Empty(borrador.Validar());
+    }
+
+    [Theory]
+    [InlineData("es-ES")]
+    [InlineData("ar-SA")]
+    public void Editar_ElMontoNoDependeDelIdiomaDelTelefono(string idioma)
+    {
+        var original = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo(idioma);
+
+            var borrador = BorradorTransaccion.DesdeTransaccion(Catalogo, GastoGuardado());
+
+            Assert.Equal("1250.50", borrador.TextoMonto);
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = original;
+        }
+    }
+
+    [Fact]
+    public void Editar_SinCambiosDevuelveLoMismoConElMismoId()
+    {
+        var guardada = GastoGuardado();
+
+        var copia = BorradorTransaccion.DesdeTransaccion(Catalogo, guardada).Crear(guardada.Id);
+
+        Assert.Equal(guardada.Id, copia.Id);
+        Assert.Equal(guardada.Tipo, copia.Tipo);
+        Assert.Equal(guardada.Fecha, copia.Fecha);
+        Assert.Equal(guardada.Monto, copia.Monto);
+        Assert.Equal(guardada.MetodoPago, copia.MetodoPago);
+        Assert.Equal(guardada.CuentaOrigen, copia.CuentaOrigen);
+        Assert.Equal(guardada.CuentaDestino, copia.CuentaDestino);
+    }
+
+    [Fact]
+    public void Editar_CambiarDatosNoTocaLaTransaccionOriginal()
+    {
+        var guardada = GastoGuardado();
+        var borrador = BorradorTransaccion.DesdeTransaccion(Catalogo, guardada);
+
+        borrador.TextoMonto = "5";
+        borrador.CambiarTipo(TipoTransaccion.Ingreso);
+
+        Assert.Equal(1250.5m, guardada.Monto);
+        Assert.Equal(TipoTransaccion.Gasto, guardada.Tipo);
+    }
+
+    [Fact]
+    public void Editar_CuentasQueYaNoEstanEnElCatalogoSiguenEnLaLista()
+    {
+        var borrador = BorradorTransaccion.DesdeTransaccion(Catalogo, GastoGuardado("Banco-Viejo", "Gasto-Viejo"));
+
+        Assert.Contains("Banco-Viejo", borrador.OpcionesOrigen);
+        Assert.Contains("Gasto-Viejo", borrador.OpcionesDestino);
+        Assert.Equal("Banco-Viejo", borrador.Origen);
+        Assert.Empty(borrador.Validar());
+    }
+
+    [Fact]
+    public void Editar_LasCuentasViejasVanOrdenadasYSinRepetir()
+    {
+        var conVieja = BorradorTransaccion.DesdeTransaccion(Catalogo, GastoGuardado(destino: "Gasto-Viejo"));
+        var sinVieja = BorradorTransaccion.DesdeTransaccion(Catalogo, GastoGuardado());
+
+        Assert.Equal(["Comida", "Gasto-Viejo", "Telefonos"], conVieja.OpcionesDestino);
+        Assert.Equal(["Comida", "Telefonos"], sinVieja.OpcionesDestino);
+    }
+
+    [Fact]
+    public void Editar_CuentaViejaSigueAlPasarDeAthADebito()
+    {
+        var borrador = BorradorTransaccion.DesdeTransaccion(Catalogo, GastoGuardado("Banco-Viejo"));
+
+        borrador.CambiarMetodo(MetodoPago.TarjetaDebito);
+
+        Assert.Equal("Banco-Viejo", borrador.Origen);
+    }
+
+    [Fact]
+    public void Editar_CuentaViejaDeBancoNoSeOfreceConOtroMetodo()
+    {
+        var borrador = BorradorTransaccion.DesdeTransaccion(Catalogo, GastoGuardado("Banco-Viejo"));
+
+        borrador.CambiarMetodo(MetodoPago.TarjetaCredito);
+
+        Assert.Equal("", borrador.Origen);
+        Assert.Equal(["Tarjeta-Ejemplo"], borrador.OpcionesOrigen);
+    }
+
+    [Fact]
+    public void Editar_VolverAlMetodoOriginalVuelveAOfrecerLaCuentaVieja()
+    {
+        var borrador = BorradorTransaccion.DesdeTransaccion(Catalogo, GastoGuardado("Banco-Viejo"));
+
+        borrador.CambiarMetodo(MetodoPago.TarjetaCredito);
+        borrador.CambiarMetodo(MetodoPago.AthMovil);
+
+        Assert.Contains("Banco-Viejo", borrador.OpcionesOrigen);
+    }
+
+    [Fact]
+    public void Editar_EfectivoConNombreViejoConservaLaCuenta()
+    {
+        var guardada = GastoGuardado("Caja-Vieja", metodo: MetodoPago.Efectivo);
+        var borrador = BorradorTransaccion.DesdeTransaccion(Catalogo, guardada);
+
+        Assert.True(borrador.OrigenEsAutomatico);
+        Assert.Equal("Caja-Vieja", borrador.Origen);
+
+        borrador.CambiarMetodo(MetodoPago.TarjetaDebito);
+        borrador.CambiarMetodo(MetodoPago.Efectivo);
+
+        Assert.Equal("Caja-Vieja", borrador.Origen);
+    }
+
+    [Fact]
+    public void Editar_PasarDeOtroMetodoAEfectivoUsaLaCuentaDelCatalogo()
+    {
+        var borrador = BorradorTransaccion.DesdeTransaccion(Catalogo, GastoGuardado());
+
+        borrador.CambiarMetodo(MetodoPago.Efectivo);
+
+        Assert.Equal("Efectivo", borrador.Origen);
+    }
+
+    [Fact]
+    public void Editar_MetodoSigueDisponibleSiSoloQuedaLaCuentaOriginal()
+    {
+        var sinTarjetas = Catalogo with { Origen = [new CuentaOrigen { Nombre = "Efectivo", Tipo = TipoCuentaOrigen.Efectivo }] };
+
+        var borrador = BorradorTransaccion.DesdeTransaccion(sinTarjetas, GastoGuardado("Tarjeta-Vieja", metodo: MetodoPago.TarjetaCredito));
+
+        Assert.Null(borrador.MotivoMetodoNoDisponible(MetodoPago.TarjetaCredito));
+        Assert.NotNull(borrador.MotivoMetodoNoDisponible(MetodoPago.AthMovil));
+    }
+
+    [Fact]
+    public void Editar_IngresoConCuentasViejasSiguenEnLaLista()
+    {
+        var borrador = BorradorTransaccion.DesdeTransaccion(Catalogo, Guardada(TipoTransaccion.Ingreso, "Ingreso-Viejo", "Banco-Viejo"));
+
+        Assert.Contains("Ingreso-Viejo", borrador.OpcionesOrigen);
+        Assert.Contains("Banco-Viejo", borrador.OpcionesDestino);
+        Assert.Null(borrador.Metodo);
+    }
+
+    [Fact]
+    public void Editar_IngresoSigueDisponibleAunqueElCatalogoNoTengaCuentasDeIngreso()
+    {
+        var sinIngresos = Catalogo with { Ingreso = [] };
+
+        var borrador = BorradorTransaccion.DesdeTransaccion(sinIngresos, Guardada(TipoTransaccion.Ingreso, "Ingreso-Viejo", "Banco-Ejemplo"));
+
+        Assert.Null(borrador.MotivoTipoNoDisponible(TipoTransaccion.Ingreso));
+    }
+
+    [Fact]
+    public void Editar_UnGastoNoHabilitaIngresoSiElCatalogoNoTieneCuentas()
+    {
+        var sinIngresos = Catalogo with { Ingreso = [] };
+
+        var borrador = BorradorTransaccion.DesdeTransaccion(sinIngresos, GastoGuardado());
+
+        Assert.NotNull(borrador.MotivoTipoNoDisponible(TipoTransaccion.Ingreso));
+    }
+
+    [Fact]
+    public void Editar_TransferenciaConDestinoViejoNoLoOfreceComoOrigenRepetido()
+    {
+        var borrador = BorradorTransaccion.DesdeTransaccion(Catalogo, Guardada(TipoTransaccion.Transferencia, "Banco-Ejemplo", "Tarjeta-Vieja"));
+
+        Assert.Contains("Tarjeta-Vieja", borrador.OpcionesDestino);
+        Assert.DoesNotContain("Banco-Ejemplo", borrador.OpcionesDestino);
+        Assert.Empty(borrador.Validar());
+    }
+
+    [Fact]
+    public void Editar_LaCuentaViejaDeOrigenSaleDelDestinoSiSigueEscogida()
+    {
+        var borrador = BorradorTransaccion.DesdeTransaccion(Catalogo, Guardada(TipoTransaccion.Transferencia, "Banco-Viejo", "Tarjeta-Ejemplo"));
+
+        Assert.Contains("Banco-Viejo", borrador.OpcionesOrigen);
+        Assert.DoesNotContain("Banco-Viejo", borrador.OpcionesDestino);
+    }
+
+    [Fact]
+    public void Editar_CambiarDeTipoVaciaLasCuentasYNoOfreceLasViejas()
+    {
+        var borrador = BorradorTransaccion.DesdeTransaccion(Catalogo, GastoGuardado("Banco-Viejo", "Gasto-Viejo"));
+
+        borrador.CambiarTipo(TipoTransaccion.Transferencia);
+
+        Assert.Equal("", borrador.Origen);
+        Assert.Equal("", borrador.Destino);
+        Assert.Null(borrador.Metodo);
+        Assert.DoesNotContain("Banco-Viejo", borrador.OpcionesOrigen);
+        Assert.DoesNotContain("Gasto-Viejo", borrador.OpcionesDestino);
+    }
+
+    [Fact]
+    public void Editar_VolverAlTipoOriginalOfreceLasViejasPeroHayQueEscogerlas()
+    {
+        var borrador = BorradorTransaccion.DesdeTransaccion(Catalogo, GastoGuardado("Banco-Viejo", "Gasto-Viejo"));
+
+        borrador.CambiarTipo(TipoTransaccion.Ingreso);
+        borrador.CambiarTipo(TipoTransaccion.Gasto);
+
+        Assert.Equal("", borrador.Destino);
+        Assert.Contains("Gasto-Viejo", borrador.OpcionesDestino);
+    }
+
+    [Fact]
+    public void Editar_CambiarAIngresoQuitaElMetodoAlGuardar()
+    {
+        var guardada = GastoGuardado();
+        var borrador = BorradorTransaccion.DesdeTransaccion(Catalogo, guardada);
+
+        borrador.CambiarTipo(TipoTransaccion.Ingreso);
+        borrador.CambiarOrigen("Ingreso-Ejemplo");
+        borrador.CambiarDestino("Banco-Ejemplo");
+
+        Assert.Empty(borrador.Validar());
+        var editada = borrador.Crear(guardada.Id);
+
+        Assert.Equal(guardada.Id, editada.Id);
+        Assert.Equal(TipoTransaccion.Ingreso, editada.Tipo);
+        Assert.Null(editada.MetodoPago);
+    }
+
+    [Fact]
+    public void Editar_LaFechaNuncaCambiaSola()
+    {
+        var guardada = GastoGuardado();
+        var borrador = BorradorTransaccion.DesdeTransaccion(Catalogo, guardada);
+
+        borrador.ActualizarHoy(guardada.Fecha.AddDays(1));
+
+        Assert.Equal(guardada.Fecha, borrador.Fecha);
+    }
+
     [Fact]
     public void ActualizarHoy_MueveLaFechaSiNoSeTocoAMano()
     {

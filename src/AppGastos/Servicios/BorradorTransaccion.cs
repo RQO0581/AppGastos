@@ -17,6 +17,21 @@ public partial class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
 
     private DateOnly hoy = hoy;
 
+    // Solo al editar: la transacción tal como estaba guardada.
+    private Transaccion? original;
+
+    public static BorradorTransaccion DesdeTransaccion(CatalogoCuentas catalogo, Transaccion transaccion) =>
+        new(catalogo, transaccion.Fecha)
+        {
+            original = transaccion,
+            Tipo = transaccion.Tipo,
+            Fecha = transaccion.Fecha,
+            TextoMonto = transaccion.Monto.ToString("0.00", CultureInfo.InvariantCulture),
+            Metodo = transaccion.MetodoPago,
+            Origen = transaccion.CuentaOrigen,
+            Destino = transaccion.CuentaDestino,
+        };
+
     public TipoTransaccion Tipo { get; private set; } = TipoTransaccion.Gasto;
     public DateOnly? Fecha { get; set; } = hoy;
     public string TextoMonto { get; set; } = "";
@@ -44,19 +59,21 @@ public partial class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
     public IReadOnlyList<string> OpcionesOrigen => Tipo switch
     {
         TipoTransaccion.Gasto => Metodo is { } metodo ? CuentasDelMetodo(metodo) : [],
-        TipoTransaccion.Ingreso => Ordenar(catalogo.Ingreso.Select(c => c.Nombre)),
-        _ => Ordenar(catalogo.Origen.Select(c => c.Nombre)),
+        TipoTransaccion.Ingreso => ConOrigenOriginal(catalogo.Ingreso.Select(c => c.Nombre)),
+        _ => ConOrigenOriginal(catalogo.Origen.Select(c => c.Nombre)),
     };
 
     public IReadOnlyList<string> OpcionesDestino => Tipo switch
     {
-        TipoTransaccion.Gasto => Ordenar(catalogo.Gasto.Select(c => c.Nombre)),
-        TipoTransaccion.Ingreso => CuentasDeTipo(TipoCuentaOrigen.Banco, TipoCuentaOrigen.Efectivo),
-        _ => Ordenar(catalogo.Origen.Select(c => c.Nombre).Where(nombre => !EsLaMismaCuenta(nombre, Origen))),
+        TipoTransaccion.Gasto => ConDestinoOriginal(catalogo.Gasto.Select(c => c.Nombre)),
+        TipoTransaccion.Ingreso => ConDestinoOriginal(CuentasDeTipo(TipoCuentaOrigen.Banco, TipoCuentaOrigen.Efectivo)),
+        _ => ConDestinoOriginal(catalogo.Origen.Select(c => c.Nombre)).Where(nombre => !EsLaMismaCuenta(nombre, Origen)).ToList(),
     };
 
     public string? MotivoTipoNoDisponible(TipoTransaccion tipo) => tipo switch
     {
+        // Al editar, el tipo original sigue disponible aunque el catálogo ya no tenga sus cuentas.
+        _ when tipo == original?.Tipo => null,
         TipoTransaccion.Ingreso when catalogo.Ingreso.Count == 0 =>
             "Para registrar ingresos, importa un catálogo con cuentas en la hoja CuentasIngreso.",
         TipoTransaccion.Transferencia when catalogo.Origen.Count < 2 =>
@@ -98,7 +115,10 @@ public partial class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
         var opciones = CuentasDelMetodo(metodo);
         if (OrigenEsAutomatico)
         {
-            Origen = opciones.FirstOrDefault() ?? "";
+            // Al editar, volver a Efectivo recupera la cuenta original aunque el catálogo tenga otra.
+            Origen = original is { Tipo: TipoTransaccion.Gasto, MetodoPago: MetodoPago.Efectivo }
+                ? original.CuentaOrigen
+                : opciones.FirstOrDefault() ?? "";
         }
         else if (!opciones.Contains(Origen))
         {
@@ -118,10 +138,11 @@ public partial class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
 
     public void CambiarDestino(string destino) => Destino = destino;
 
-    // La app puede quedar abierta de un día para otro. Una fecha escogida a mano no se toca.
+    // La app puede quedar abierta de un día para otro. Una fecha escogida a mano no se toca,
+    // y al editar la fecha nunca cambia sola.
     public void ActualizarHoy(DateOnly nuevoHoy)
     {
-        if (Fecha == hoy)
+        if (original is null && Fecha == hoy)
         {
             Fecha = nuevoHoy;
         }
@@ -211,13 +232,40 @@ public partial class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
         return monto > MontoMaximo ? "El monto es demasiado grande." : null;
     }
 
-    private IReadOnlyList<string> CuentasDelMetodo(MetodoPago metodo) => metodo switch
+    private static TipoCuentaOrigen TipoDeCuentaDelMetodo(MetodoPago metodo) => metodo switch
     {
-        MetodoPago.Efectivo => CuentasDeTipo(TipoCuentaOrigen.Efectivo),
-        MetodoPago.TarjetaCredito => CuentasDeTipo(TipoCuentaOrigen.TarjetaCredito),
+        MetodoPago.Efectivo => TipoCuentaOrigen.Efectivo,
+        MetodoPago.TarjetaCredito => TipoCuentaOrigen.TarjetaCredito,
         // ATH Móvil y débito siempre salen de una cuenta de banco.
-        _ => CuentasDeTipo(TipoCuentaOrigen.Banco),
+        _ => TipoCuentaOrigen.Banco,
     };
+
+    private IReadOnlyList<string> CuentasDelMetodo(MetodoPago metodo)
+    {
+        var cuentas = CuentasDeTipo(TipoDeCuentaDelMetodo(metodo));
+        return original?.Tipo == TipoTransaccion.Gasto
+            && original.MetodoPago is { } metodoOriginal
+            && TipoDeCuentaDelMetodo(metodoOriginal) == TipoDeCuentaDelMetodo(metodo)
+                ? Incluir(cuentas, original.CuentaOrigen)
+                : cuentas;
+    }
+
+    private List<string> ConOrigenOriginal(IEnumerable<string> cuentas) =>
+        original?.Tipo == Tipo ? Incluir(cuentas, original.CuentaOrigen) : Ordenar(cuentas);
+
+    private List<string> ConDestinoOriginal(IEnumerable<string> cuentas) =>
+        original?.Tipo == Tipo ? Incluir(cuentas, original.CuentaDestino) : Ordenar(cuentas);
+
+    // Una cuenta que ya no está en el catálogo debe seguir en la lista: si no, se perdería al editar sin que se note.
+    private static List<string> Incluir(IEnumerable<string> cuentas, string nombre)
+    {
+        var lista = cuentas.ToList();
+        if (nombre.Length > 0 && !lista.Exists(cuenta => EsLaMismaCuenta(cuenta, nombre)))
+        {
+            lista.Add(nombre);
+        }
+        return Ordenar(lista);
+    }
 
     private List<string> CuentasDeTipo(params TipoCuentaOrigen[] tipos) =>
         Ordenar(catalogo.Origen.Where(c => tipos.Contains(c.Tipo)).Select(c => c.Nombre));
