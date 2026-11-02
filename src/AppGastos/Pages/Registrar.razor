@@ -232,7 +232,8 @@ else
                 await Almacen.GuardarTransaccionAsync(transaccion);
                 exito = Resumen(transaccion);
                 // Al vaciar el monto, un segundo toque no puede guardar la misma transacción otra vez.
-                borrador = new BorradorTransaccion(catalogo!, Hoy());
+                // La fecha se conserva: ayuda al registrar varios recibos del mismo día.
+                borrador = new BorradorTransaccion(catalogo!, Hoy()) { Fecha = transaccion.Fecha };
             }
             catch (Exception error)
             {
