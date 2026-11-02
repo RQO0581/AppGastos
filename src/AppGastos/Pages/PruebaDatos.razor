@@ -13,6 +13,7 @@
 <p>Suma: <strong id="total-suma">@Monto(transacciones.Sum(t => t.Monto))</strong></p>
 
 <button class="boton" id="anadir" @onclick="AnadirEjemplos">Añadir 3 de ejemplo</button>
+<button class="boton" id="anadir-ingreso" @onclick="AnadirIngreso">Añadir ingreso de ejemplo</button>
 <button class="boton" id="borrar-enero" @onclick="BorrarEnero">Borrar del 1/1/2026 al 1/31/2026</button>
 
 <ul class="lista" id="lista">
@@ -21,7 +22,7 @@
         <li class="lista-fila">
             <span>
                 <strong>@transaccion.Fecha.ToString("M/d/yyyy", CultureInfo.InvariantCulture) · @Monto(transaccion.Monto)</strong><br />
-                @transaccion.CuentaOrigen → @transaccion.CuentaGasto (@transaccion.MetodoPago)
+                @transaccion.Tipo: @transaccion.CuentaOrigen → @transaccion.CuentaDestino (@(transaccion.MetodoPago?.ToString() ?? "sin método"))
             </span>
             <span class="lista-acciones">
                 <button class="boton" @onclick="() => SumarUno(transaccion)">+1</button>
@@ -35,6 +36,7 @@
 <ul>
     <li>Cuentas de origen: <span id="cuentas-origen">@cuentasOrigen.Length</span></li>
     <li>Cuentas de gasto: <span id="cuentas-gasto">@cuentasGasto.Length</span></li>
+    <li>Cuentas de ingreso: <span id="cuentas-ingreso">@cuentasIngreso.Length</span></li>
 </ul>
 <button class="boton" id="guardar-cuentas" @onclick="GuardarCuentas">Guardar cuentas de ejemplo</button>
 
@@ -53,6 +55,7 @@
     private Transaccion[] transacciones = [];
     private CuentaOrigen[] cuentasOrigen = [];
     private CuentaGasto[] cuentasGasto = [];
+    private CuentaIngreso[] cuentasIngreso = [];
     private string correo = "";
     private bool? persistente;
     private string estado = "-";
@@ -75,6 +78,17 @@
         await Almacen.GuardarTransaccionAsync(Nueva(new DateOnly(2026, 2, 28), 0.10m, MetodoPago.Efectivo, "Efectivo", "Comida"));
         await Almacen.GuardarTransaccionAsync(Nueva(new DateOnly(2026, 12, 31), 1250.50m, MetodoPago.AthMovil, "Banco-Ejemplo", "Comida"));
     });
+
+    private Task AnadirIngreso() => Intentar("Se añadió un ingreso", async () =>
+        await Almacen.GuardarTransaccionAsync(new Transaccion
+        {
+            Id = Guid.NewGuid(),
+            Tipo = TipoTransaccion.Ingreso,
+            Fecha = new DateOnly(2026, 1, 5),
+            Monto = 500m,
+            CuentaOrigen = "Ingreso-Ejemplo",
+            CuentaDestino = "Banco-Ejemplo",
+        }));
 
     private async Task BorrarEnero()
     {
@@ -109,6 +123,9 @@
         [
             new CuentaGasto { Nombre = "Comida" },
             new CuentaGasto { Nombre = "Telefonos" },
+        ],
+        [
+            new CuentaIngreso { Nombre = "Ingreso-Ejemplo" },
         ]);
     });
 
@@ -118,11 +135,12 @@
     private static Transaccion Nueva(DateOnly fecha, decimal monto, MetodoPago metodo, string origen, string gasto) => new()
     {
         Id = Guid.NewGuid(),
+        Tipo = TipoTransaccion.Gasto,
         Fecha = fecha,
         Monto = monto,
         MetodoPago = metodo,
         CuentaOrigen = origen,
-        CuentaGasto = gasto,
+        CuentaDestino = gasto,
     };
 
     private async Task Intentar(string mensaje, Func<Task> accion)
@@ -133,6 +151,7 @@
             transacciones = await Almacen.ListarTransaccionesAsync();
             cuentasOrigen = await Almacen.ListarCuentasOrigenAsync();
             cuentasGasto = await Almacen.ListarCuentasGastoAsync();
+            cuentasIngreso = await Almacen.ListarCuentasIngresoAsync();
             estado = mensaje;
         }
         catch (Exception error)

@@ -49,6 +49,96 @@ public class ImportadorCatalogoTests
         Assert.Equal(TipoCuentaOrigen.Efectivo, resultado.CuentasOrigen.Single(c => c.Nombre == "Efectivo").Tipo);
         Assert.Equal(TipoCuentaOrigen.Banco, resultado.CuentasOrigen.Single(c => c.Nombre == "Banco-Ejemplo").Tipo);
         Assert.Equal(TipoCuentaOrigen.TarjetaCredito, resultado.CuentasOrigen.Single(c => c.Nombre == "Tarjeta-Ejemplo").Tipo);
+        Assert.Equal("Ingreso-Ejemplo", Assert.Single(resultado.CuentasIngreso).Nombre);
+        Assert.False(resultado.EfectivoAnadido);
+    }
+
+    [Fact]
+    public void CatalogoDeDosHojas_SigueFuncionandoSinCuentasDeIngreso()
+    {
+        var resultado = LeerConOrigen(["Banco-Ejemplo", "Banco"]);
+
+        Assert.True(resultado.EsValido);
+        Assert.Empty(resultado.CuentasIngreso);
+    }
+
+    [Fact]
+    public void HojaDeIngresoVacia_NoEsError()
+    {
+        var resultado = ImportadorCatalogo.Leer(Libro(
+            Origen(["Banco-Ejemplo", "Banco"]), GastoValido, ("CuentasIngreso", [["Nombre"]])));
+
+        Assert.True(resultado.EsValido);
+        Assert.Empty(resultado.CuentasIngreso);
+    }
+
+    [Fact]
+    public void HojaDeIngreso_SeLee()
+    {
+        var resultado = ImportadorCatalogo.Leer(Libro(
+            Origen(["Banco-Ejemplo", "Banco"]), GastoValido, ("cuentasingreso", [["NOMBRE"], [" Ingreso-Ejemplo "], [null], ["Ingreso-Otro"]])));
+
+        Assert.True(resultado.EsValido);
+        Assert.Equal(["Ingreso-Ejemplo", "Ingreso-Otro"], resultado.CuentasIngreso.Select(c => c.Nombre));
+    }
+
+    [Fact]
+    public void HojaDeIngresoSinColumnaNombre_EsError()
+    {
+        var resultado = ImportadorCatalogo.Leer(Libro(
+            Origen(["Banco-Ejemplo", "Banco"]), GastoValido, ("CuentasIngreso", [["Cuenta"], ["Ingreso-Ejemplo"]])));
+
+        var error = Assert.Single(resultado.Errores);
+        Assert.Contains("CuentasIngreso", error);
+        Assert.Contains("columna Nombre", error);
+    }
+
+    [Fact]
+    public void CuentaIngresoRepetida_IndicaLaFila()
+    {
+        var resultado = ImportadorCatalogo.Leer(Libro(
+            Origen(["Banco-Ejemplo", "Banco"]), GastoValido, ("CuentasIngreso", [["Nombre"], ["Ingreso-Ejemplo"], ["INGRESO-EJEMPLO"]])));
+
+        var error = Assert.Single(resultado.Errores);
+        Assert.Contains("CuentasIngreso", error);
+        Assert.Contains("fila 3", error);
+    }
+
+    [Theory]
+    [InlineData("Comida", "CuentasGasto", "CuentasIngreso")]
+    [InlineData("comida", "CuentasGasto", "CuentasIngreso")]
+    [InlineData("Banco-Ejemplo", "CuentasOrigen", "CuentasIngreso")]
+    public void Nombre_RepetidoEntreHojas_EsError(string nombreIngreso, string hoja1, string hoja2)
+    {
+        var resultado = ImportadorCatalogo.Leer(Libro(
+            Origen(["Banco-Ejemplo", "Banco"]), GastoValido, ("CuentasIngreso", [["Nombre"], [nombreIngreso]])));
+
+        var error = Assert.Single(resultado.Errores);
+        Assert.Contains(hoja1, error);
+        Assert.Contains(hoja2, error);
+        Assert.Empty(resultado.CuentasOrigen);
+        Assert.Empty(resultado.CuentasGasto);
+        Assert.Empty(resultado.CuentasIngreso);
+    }
+
+    [Fact]
+    public void Nombre_RepetidoEntreOrigenYGasto_EsError()
+    {
+        var resultado = ImportadorCatalogo.Leer(Libro(
+            Origen(["Comida", "Banco"]), GastoValido));
+
+        var error = Assert.Single(resultado.Errores);
+        Assert.Contains("CuentasOrigen", error);
+        Assert.Contains("CuentasGasto", error);
+    }
+
+    [Fact]
+    public void EfectivoAnadidoSolo_TampocoPuedeRepetirseEnOtraHoja()
+    {
+        var resultado = ImportadorCatalogo.Leer(Libro(
+            Origen(["Banco-Ejemplo", "Banco"]), ("CuentasGasto", [["Nombre"], ["Efectivo"]])));
+
+        Assert.Contains("Efectivo", Assert.Single(resultado.Errores));
     }
 
     [Fact]
@@ -66,16 +156,18 @@ public class ImportadorCatalogoTests
 
         Assert.True(resultado.EsValido);
         Assert.Contains(resultado.CuentasOrigen, c => c.Nombre == "Efectivo" && c.Tipo == TipoCuentaOrigen.Efectivo);
+        Assert.True(resultado.EfectivoAnadido);
     }
 
+    // Los nombres deben coincidir con el sistema de contabilidad que recibe el Excel.
     [Fact]
-    public void Efectivo_NoSeDuplicaYSeGuardaConSuNombreExacto()
+    public void Efectivo_NoSeDuplicaYConservaComoEstaEscrito()
     {
-        var resultado = LeerConOrigen(["efectivo", "Efectivo"], ["Banco-Ejemplo", "Banco"]);
+        var resultado = LeerConOrigen(["EFECTIVO", "Efectivo"], ["Banco-Ejemplo", "Banco"]);
 
         Assert.True(resultado.EsValido);
-        Assert.Single(resultado.CuentasOrigen, c => c.Tipo == TipoCuentaOrigen.Efectivo);
-        Assert.Contains(resultado.CuentasOrigen, c => c.Nombre == "Efectivo");
+        Assert.Equal("EFECTIVO", Assert.Single(resultado.CuentasOrigen, c => c.Tipo == TipoCuentaOrigen.Efectivo).Nombre);
+        Assert.False(resultado.EfectivoAnadido);
     }
 
     [Theory]

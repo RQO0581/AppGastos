@@ -30,9 +30,15 @@ public class Almacen(IJSRuntime js)
     public ValueTask<CuentaGasto[]> ListarCuentasGastoAsync() =>
         js.InvokeAsync<CuentaGasto[]>("appGastos.almacen.listarCuentasGasto");
 
-    // Reemplaza los dos almacenes en una sola transacción: o cambian ambos, o ninguno.
-    public ValueTask ReemplazarCatalogoAsync(IEnumerable<CuentaOrigen> cuentasOrigen, IEnumerable<CuentaGasto> cuentasGasto) =>
-        js.InvokeVoidAsync("appGastos.almacen.reemplazarCatalogo", cuentasOrigen.ToArray(), cuentasGasto.ToArray());
+    public ValueTask<CuentaIngreso[]> ListarCuentasIngresoAsync() =>
+        js.InvokeAsync<CuentaIngreso[]>("appGastos.almacen.listarCuentasIngreso");
+
+    // Reemplaza los tres almacenes en una sola transacción: o cambian todos, o ninguno.
+    public ValueTask ReemplazarCatalogoAsync(
+        IEnumerable<CuentaOrigen> cuentasOrigen,
+        IEnumerable<CuentaGasto> cuentasGasto,
+        IEnumerable<CuentaIngreso> cuentasIngreso) =>
+        js.InvokeVoidAsync("appGastos.almacen.reemplazarCatalogo", cuentasOrigen.ToArray(), cuentasGasto.ToArray(), cuentasIngreso.ToArray());
 
     public ValueTask<string?> ObtenerCorreoAsync() =>
         js.InvokeAsync<string?>("appGastos.almacen.obtenerAjuste", ClaveCorreo);

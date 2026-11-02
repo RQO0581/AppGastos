@@ -36,10 +36,14 @@ public class AlmacenTests
         [
             new CuentaGasto { Nombre = "Comida" },
             new CuentaGasto { Nombre = "Telefonos" },
+        ],
+        [
+            new CuentaIngreso { Nombre = "Ingreso-Ejemplo" },
         ]);
 
-        Assert.Equal(2, js.Argumentos!.Length);
+        Assert.Equal(3, js.Argumentos!.Length);
         Assert.Equal(3, Assert.IsType<CuentaOrigen[]>(js.Argumentos[0]).Length);
         Assert.Equal(2, Assert.IsType<CuentaGasto[]>(js.Argumentos[1]).Length);
+        Assert.Single(Assert.IsType<CuentaIngreso[]>(js.Argumentos[2]));
     }
 }

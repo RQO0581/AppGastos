@@ -18,10 +18,11 @@ public class ModeloJsonTests
     {
         Id = Guid.Parse("11111111-2222-3333-4444-555555555555"),
         Fecha = new DateOnly(2026, 1, 5),
+        Tipo = TipoTransaccion.Gasto,
         Monto = 104.24m,
         MetodoPago = MetodoPago.AthMovil,
         CuentaOrigen = "Banco-Ejemplo",
-        CuentaGasto = "Telefonos",
+        CuentaDestino = "Telefonos",
     };
 
     [Fact]
@@ -34,8 +35,37 @@ public class ModeloJsonTests
         Assert.Equal("2026-01-05", raiz.GetProperty("fecha").GetString());
         Assert.Equal(104.24m, raiz.GetProperty("monto").GetDecimal());
         Assert.Equal("AthMovil", raiz.GetProperty("metodoPago").GetString());
+        Assert.Equal("Gasto", raiz.GetProperty("tipo").GetString());
         Assert.Equal("Banco-Ejemplo", raiz.GetProperty("cuentaOrigen").GetString());
-        Assert.Equal("Telefonos", raiz.GetProperty("cuentaGasto").GetString());
+        Assert.Equal("Telefonos", raiz.GetProperty("cuentaDestino").GetString());
+    }
+
+    [Fact]
+    public void Ingreso_NoTieneMetodoDePagoYSeRecuperaIgual()
+    {
+        var ingreso = new Transaccion
+        {
+            Id = Guid.NewGuid(),
+            Tipo = TipoTransaccion.Ingreso,
+            Fecha = new DateOnly(2026, 1, 5),
+            Monto = 500m,
+            CuentaOrigen = "Ingreso-Ejemplo",
+            CuentaDestino = "Banco-Ejemplo",
+        };
+
+        var json = JsonSerializer.Serialize(ingreso, Opciones);
+        var copia = JsonSerializer.Deserialize<Transaccion>(json, Opciones)!;
+
+        Assert.Contains("\"tipo\":\"Ingreso\"", json);
+        Assert.Contains("\"metodoPago\":null", json);
+        Assert.Equal(TipoTransaccion.Ingreso, copia.Tipo);
+        Assert.Null(copia.MetodoPago);
+    }
+
+    [Fact]
+    public void Tipo_PorDefectoEsGasto()
+    {
+        Assert.Equal(TipoTransaccion.Gasto, new Transaccion().Tipo);
     }
 
     [Fact]
@@ -107,6 +137,7 @@ public class ModeloJsonTests
         Assert.Equal(Ejemplo.Monto, copia.Monto);
         Assert.Equal(Ejemplo.MetodoPago, copia.MetodoPago);
         Assert.Equal(Ejemplo.CuentaOrigen, copia.CuentaOrigen);
-        Assert.Equal(Ejemplo.CuentaGasto, copia.CuentaGasto);
+        Assert.Equal(Ejemplo.CuentaDestino, copia.CuentaDestino);
+        Assert.Equal(Ejemplo.Tipo, copia.Tipo);
     }
 }

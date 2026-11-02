@@ -57,6 +57,43 @@ public class ExportadorExcelTests
         Assert.True(hoja.Cell("H3").IsEmpty());
     }
 
+    // El ejemplo de ingreso de REQUISITOS.md, con una cuenta ficticia.
+    [Fact]
+    public void Ingreso_UsaLaMismaReglaConOrigenYDestino()
+    {
+        var ingreso = new MovimientoExcel(new DateOnly(2026, 1, 5), "Ingreso-Ejemplo", "Banco-Ejemplo", 500m);
+
+        var hoja = AbrirHoja(ExportadorExcel.Crear([ingreso]));
+
+        Assert.Equal(new DateTime(2026, 1, 5), hoja.Cell("A2").GetDateTime());
+        Assert.Equal("Ingreso-Ejemplo", hoja.Cell("E2").GetString());
+        Assert.Equal("Banco-Ejemplo", hoja.Cell("F2").GetString());
+        Assert.True(hoja.Cell("G2").IsEmpty());
+        Assert.Equal(500, hoja.Cell("H2").GetDouble());
+        Assert.Equal("0.00", hoja.Cell("H2").Style.NumberFormat.Format);
+
+        Assert.Equal(new DateTime(2026, 1, 5), hoja.Cell("A3").GetDateTime());
+        Assert.Equal("Banco-Ejemplo", hoja.Cell("E3").GetString());
+        Assert.Equal("Ingreso-Ejemplo", hoja.Cell("F3").GetString());
+        Assert.Equal(500, hoja.Cell("G3").GetDouble());
+        Assert.True(hoja.Cell("H3").IsEmpty());
+        Assert.Equal("0.00", hoja.Cell("G3").Style.NumberFormat.Format);
+    }
+
+    [Fact]
+    public void GastosEIngresos_VanEnElMismoArchivo()
+    {
+        var hoja = AbrirHoja(ExportadorExcel.Crear(
+        [
+            Movimiento,
+            new MovimientoExcel(new DateOnly(2026, 1, 5), "Ingreso-Ejemplo", "Banco-Ejemplo", 500m),
+        ]));
+
+        Assert.Equal(5, hoja.LastRowUsed()!.RowNumber());
+        Assert.Equal("Banco-Ejemplo", hoja.Cell("E2").GetString());
+        Assert.Equal("Ingreso-Ejemplo", hoja.Cell("E4").GetString());
+    }
+
     [Theory]
     [InlineData(2)]
     [InlineData(3)]

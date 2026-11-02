@@ -14,7 +14,7 @@
     }
     else
     {
-        <text>Catálogo actual: @cuentasOrigenActuales cuentas de origen y @cuentasGastoActuales cuentas de gasto.</text>
+        <text>Catálogo actual: @cuentasOrigenActuales cuentas de origen, @cuentasGastoActuales de gasto y @cuentasIngresoActuales de ingreso.</text>
     }
 </p>
 
@@ -69,8 +69,30 @@
                 <li>@cuenta.Nombre</li>
             }
         </ul>
+
+        <h3>Cuentas de ingreso (@lectura.CuentasIngreso.Count)</h3>
+        <ul>
+            @foreach (var cuenta in lectura.CuentasIngreso.OrderBy(c => c.Nombre, StringComparer.CurrentCultureIgnoreCase))
+            {
+                <li>@cuenta.Nombre</li>
+            }
+        </ul>
     </div>
 
+    @if (lectura.EfectivoAnadido)
+    {
+        <div class="aviso" id="aviso-efectivo">El archivo no incluye la cuenta @ImportadorCatalogo.NombreEfectivo, así que la app la añadió. Debe llamarse igual en tu sistema de contabilidad.</div>
+    }
+    @if (lectura.CuentasIngreso.Count == 0)
+    {
+        <div class="aviso" id="aviso-ingreso">
+            Este archivo no tiene cuentas de ingreso, así que no se podrán registrar ingresos.
+            @if (cuentasIngresoActuales > 0)
+            {
+                <text>Se quitarán las cuentas de ingreso que hay ahora (@cuentasIngresoActuales).</text>
+            }
+        </div>
+    }
     @if (cuentasOrigenActuales + cuentasGastoActuales > 0)
     {
         <div class="aviso">Esto reemplazará el catálogo actual. Las transacciones ya registradas no cambian.</div>
@@ -94,6 +116,7 @@
     private string nombreArchivo = "";
     private int cuentasOrigenActuales;
     private int cuentasGastoActuales;
+    private int cuentasIngresoActuales;
     private int claveSelector;
     private bool ocupado;
     private string? mensaje;
@@ -151,8 +174,8 @@
         ocupado = true;
         try
         {
-            await Almacen.ReemplazarCatalogoAsync(lectura!.CuentasOrigen, lectura.CuentasGasto);
-            mensaje = $"Catálogo importado: {lectura.CuentasOrigen.Count} cuentas de origen y {lectura.CuentasGasto.Count} cuentas de gasto. Las transacciones no cambiaron.";
+            await Almacen.ReemplazarCatalogoAsync(lectura!.CuentasOrigen, lectura.CuentasGasto, lectura.CuentasIngreso);
+            mensaje = $"Catálogo importado: {lectura.CuentasOrigen.Count} cuentas de origen, {lectura.CuentasGasto.Count} de gasto y {lectura.CuentasIngreso.Count} de ingreso. Las transacciones no cambiaron.";
             mensajeEsError = false;
             lectura = null;
             await CargarCatalogoActual();
@@ -190,6 +213,7 @@
     {
         cuentasOrigenActuales = (await Almacen.ListarCuentasOrigenAsync()).Length;
         cuentasGastoActuales = (await Almacen.ListarCuentasGastoAsync()).Length;
+        cuentasIngresoActuales = (await Almacen.ListarCuentasIngresoAsync()).Length;
     }
 
     private void MostrarError(string texto)

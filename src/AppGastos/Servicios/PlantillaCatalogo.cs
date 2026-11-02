@@ -35,6 +35,11 @@ public static class PlantillaCatalogo
         gasto.Cell(3, 1).Value = "Telefonos";
         gasto.Column(1).Width = 30;
 
+        var ingreso = libro.AddWorksheet(ImportadorCatalogo.HojaCuentasIngreso);
+        ingreso.Cell(1, 1).Value = ImportadorCatalogo.ColumnaNombre;
+        ingreso.Cell(2, 1).Value = "Ingreso-Ejemplo";
+        ingreso.Column(1).Width = 30;
+
         using var memoria = new MemoryStream();
         libro.SaveAs(memoria);
         return memoria.ToArray();

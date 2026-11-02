@@ -2,7 +2,7 @@ using ClosedXML.Excel;
 
 namespace AppGastos.Servicios;
 
-public record MovimientoExcel(DateOnly Fecha, string CuentaOrigen, string CuentaGasto, decimal Monto);
+public record MovimientoExcel(DateOnly Fecha, string CuentaOrigen, string CuentaDestino, decimal Monto);
 
 public static class ExportadorExcel
 {
@@ -28,8 +28,9 @@ public static class ExportadorExcel
         var fila = 2;
         foreach (var movimiento in movimientos)
         {
-            EscribirFila(hoja, fila++, movimiento.Fecha, movimiento.CuentaOrigen, movimiento.CuentaGasto, ColumnaCredit, movimiento.Monto);
-            EscribirFila(hoja, fila++, movimiento.Fecha, movimiento.CuentaGasto, movimiento.CuentaOrigen, ColumnaDebit, movimiento.Monto);
+            // La misma regla para gastos e ingresos: solo cambia qué cuenta es el origen y cuál el destino.
+            EscribirFila(hoja, fila++, movimiento.Fecha, movimiento.CuentaOrigen, movimiento.CuentaDestino, ColumnaCredit, movimiento.Monto);
+            EscribirFila(hoja, fila++, movimiento.Fecha, movimiento.CuentaDestino, movimiento.CuentaOrigen, ColumnaDebit, movimiento.Monto);
         }
 
         // Ancho fijo: calcularlo según el contenido requiere fuentes, y en el teléfono no hay garantía de tenerlas.

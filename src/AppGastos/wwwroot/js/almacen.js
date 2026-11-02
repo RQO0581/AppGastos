@@ -2,14 +2,34 @@ window.appGastos = window.appGastos || {};
 
 (function () {
     const NOMBRE_BD = "AppGastos";
-    const VERSION_BD = 1;
+    const VERSION_BD = 2;
     const TRANSACCIONES = "transacciones";
     const CUENTAS_ORIGEN = "cuentasOrigen";
     const CUENTAS_GASTO = "cuentasGasto";
+    const CUENTAS_INGRESO = "cuentasIngreso";
     const AJUSTES = "ajustes";
     const INDICE_FECHA = "fecha";
 
     let conexion = null;
+
+    // Versión 1 a 2: llegan los ingresos. Las transacciones anteriores eran gastos, y su
+    // cuentaGasto pasa a llamarse cuentaDestino.
+    function migrarTransaccionesAVersion2(transaccion) {
+        const solicitud = transaccion.objectStore(TRANSACCIONES).openCursor();
+        solicitud.onsuccess = () => {
+            const cursor = solicitud.result;
+            if (!cursor) {
+                return;
+            }
+            const { cuentaGasto, ...resto } = cursor.value;
+            cursor.update({
+                ...resto,
+                tipo: resto.tipo ?? "Gasto",
+                cuentaDestino: resto.cuentaDestino ?? cuentaGasto ?? "",
+            });
+            cursor.continue();
+        };
+    }
 
     function abrir() {
         if (conexion) {
@@ -19,14 +39,21 @@ window.appGastos = window.appGastos || {};
         conexion = new Promise((resolver, rechazar) => {
             const solicitud = indexedDB.open(NOMBRE_BD, VERSION_BD);
 
-            // Solo corre al crear la base de datos o al subir VERSION_BD.
-            solicitud.onupgradeneeded = () => {
+            // Solo corre al crear la base de datos o al subir VERSION_BD. Si algo falla, IndexedDB
+            // deshace todo y los datos quedan como estaban.
+            solicitud.onupgradeneeded = evento => {
                 const bd = solicitud.result;
-                const transacciones = bd.createObjectStore(TRANSACCIONES, { keyPath: "id" });
-                transacciones.createIndex(INDICE_FECHA, "fecha");
-                bd.createObjectStore(CUENTAS_ORIGEN, { keyPath: "nombre" });
-                bd.createObjectStore(CUENTAS_GASTO, { keyPath: "nombre" });
-                bd.createObjectStore(AJUSTES, { keyPath: "clave" });
+                if (evento.oldVersion < 1) {
+                    const transacciones = bd.createObjectStore(TRANSACCIONES, { keyPath: "id" });
+                    transacciones.createIndex(INDICE_FECHA, "fecha");
+                    bd.createObjectStore(CUENTAS_ORIGEN, { keyPath: "nombre" });
+                    bd.createObjectStore(CUENTAS_GASTO, { keyPath: "nombre" });
+                    bd.createObjectStore(AJUSTES, { keyPath: "clave" });
+                }
+                if (evento.oldVersion < 2) {
+                    bd.createObjectStore(CUENTAS_INGRESO, { keyPath: "nombre" });
+                    migrarTransaccionesAVersion2(solicitud.transaction);
+                }
             };
 
             solicitud.onsuccess = () => {
@@ -149,10 +176,12 @@ window.appGastos = window.appGastos || {};
 
         listarCuentasOrigen: () => listarTodo(CUENTAS_ORIGEN),
         listarCuentasGasto: () => listarTodo(CUENTAS_GASTO),
+        listarCuentasIngreso: () => listarTodo(CUENTAS_INGRESO),
 
-        reemplazarCatalogo: (cuentasOrigen, cuentasGasto) => ejecutar([CUENTAS_ORIGEN, CUENTAS_GASTO], "readwrite", transaccion => {
+        reemplazarCatalogo: (cuentasOrigen, cuentasGasto, cuentasIngreso) => ejecutar([CUENTAS_ORIGEN, CUENTAS_GASTO, CUENTAS_INGRESO], "readwrite", transaccion => {
             reemplazarAlmacen(transaccion, CUENTAS_ORIGEN, cuentasOrigen);
             reemplazarAlmacen(transaccion, CUENTAS_GASTO, cuentasGasto);
+            reemplazarAlmacen(transaccion, CUENTAS_INGRESO, cuentasIngreso);
         }),
 
         obtenerAjuste: clave => ejecutar(AJUSTES, "readonly", (transaccion, salida) => {

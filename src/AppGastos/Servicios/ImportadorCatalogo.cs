@@ -6,6 +6,8 @@ namespace AppGastos.Servicios;
 public record ResultadoImportacion(
     IReadOnlyList<CuentaOrigen> CuentasOrigen,
     IReadOnlyList<CuentaGasto> CuentasGasto,
+    IReadOnlyList<CuentaIngreso> CuentasIngreso,
+    bool EfectivoAnadido,
     IReadOnlyList<string> Errores)
 {
     public bool EsValido => Errores.Count == 0;
@@ -15,6 +17,7 @@ public static class ImportadorCatalogo
 {
     public const string HojaCuentasGasto = "CuentasGasto";
     public const string HojaCuentasOrigen = "CuentasOrigen";
+    public const string HojaCuentasIngreso = "CuentasIngreso";
     public const string ColumnaNombre = "Nombre";
     public const string ColumnaTipo = "Tipo";
     public const string NombreEfectivo = "Efectivo";
@@ -36,27 +39,70 @@ public static class ImportadorCatalogo
         {
             using var libro = new XLWorkbook(archivo);
             var cuentasOrigen = LeerCuentasOrigen(libro, errores);
-            var cuentasGasto = LeerCuentasGasto(libro, errores);
+            var nombresGasto = LeerNombres(libro, HojaCuentasGasto, obligatoria: true, errores);
+            // Opcional, para que los catálogos de dos hojas sigan funcionando.
+            var nombresIngreso = LeerNombres(libro, HojaCuentasIngreso, obligatoria: false, errores);
+
+            // Efectivo se añade antes de comparar: tampoco puede repetirse en las otras hojas.
+            var efectivoAnadido = cuentasOrigen.Count > 0
+                && !cuentasOrigen.Exists(c => c.Tipo == TipoCuentaOrigen.Efectivo);
+            if (efectivoAnadido)
+            {
+                cuentasOrigen.Add(new CuentaOrigen { Nombre = NombreEfectivo, Tipo = TipoCuentaOrigen.Efectivo });
+            }
+
+            RevisarNombresEntreHojas(cuentasOrigen.Select(c => c.Nombre), nombresGasto, nombresIngreso, errores);
 
             // Si hay errores no se devuelve nada, para que sea imposible importar un catálogo a medias.
             return errores.Count == 0
-                ? new ResultadoImportacion(cuentasOrigen, cuentasGasto, errores)
-                : new ResultadoImportacion([], [], errores);
+                ? new ResultadoImportacion(
+                    cuentasOrigen,
+                    nombresGasto.Select(n => new CuentaGasto { Nombre = n }).ToList(),
+                    nombresIngreso.Select(n => new CuentaIngreso { Nombre = n }).ToList(),
+                    efectivoAnadido,
+                    errores)
+                : ConErrores(errores);
         }
         catch (Exception)
         {
             // ClosedXML lanza excepciones de muchos tipos según qué esté mal en el archivo.
-            return new ResultadoImportacion([], [], ["No se pudo leer el archivo. Debe ser un Excel .xlsx sin contraseña."]);
+            return ConErrores(["No se pudo leer el archivo. Debe ser un Excel .xlsx sin contraseña."]);
         }
     }
 
-    private static List<CuentaGasto> LeerCuentasGasto(XLWorkbook libro, List<string> errores)
+    private static ResultadoImportacion ConErrores(List<string> errores) => new([], [], [], false, errores);
+
+    // En el Excel exportado solo se ve el nombre: si dos cuentas se llaman igual, no se distinguen.
+    private static void RevisarNombresEntreHojas(IEnumerable<string> origen, IEnumerable<string> gasto, IEnumerable<string> ingreso, List<string> errores)
     {
-        var cuentas = new List<CuentaGasto>();
-        if (!TryObtenerHoja(libro, HojaCuentasGasto, errores, out var hoja)
-            || !TryObtenerColumna(hoja, ColumnaNombre, errores, out var columnaNombre))
+        var repetidos = origen.Select(nombre => (Nombre: nombre, Hoja: HojaCuentasOrigen))
+            .Concat(gasto.Select(nombre => (Nombre: nombre, Hoja: HojaCuentasGasto)))
+            .Concat(ingreso.Select(nombre => (Nombre: nombre, Hoja: HojaCuentasIngreso)))
+            .GroupBy(cuenta => cuenta.Nombre, StringComparer.OrdinalIgnoreCase)
+            .Where(grupo => grupo.Count() > 1);
+
+        foreach (var grupo in repetidos)
         {
-            return cuentas;
+            var hojas = string.Join(" y ", grupo.Select(cuenta => cuenta.Hoja));
+            errores.Add($"La cuenta \"{grupo.Key}\" aparece en las hojas {hojas}. Un nombre no puede repetirse entre hojas.");
+        }
+    }
+
+    private static List<string> LeerNombres(XLWorkbook libro, string nombreHoja, bool obligatoria, List<string> errores)
+    {
+        var nombres = new List<string>();
+        if (!libro.TryGetWorksheet(nombreHoja, out var hoja))
+        {
+            if (obligatoria)
+            {
+                errores.Add($"Falta la hoja {nombreHoja}.");
+            }
+            return nombres;
+        }
+
+        if (!TryObtenerColumna(hoja, ColumnaNombre, errores, out var columnaNombre))
+        {
+            return nombres;
         }
 
         var vistos = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -70,26 +116,27 @@ public static class ImportadorCatalogo
 
             if (vistos.Add(nombre))
             {
-                cuentas.Add(new CuentaGasto { Nombre = nombre });
+                nombres.Add(nombre);
             }
             else
             {
-                errores.Add($"Hoja {HojaCuentasGasto}, fila {fila}: la cuenta \"{nombre}\" está repetida.");
+                errores.Add($"Hoja {nombreHoja}, fila {fila}: la cuenta \"{nombre}\" está repetida.");
             }
         }
 
-        if (cuentas.Count == 0)
+        if (nombres.Count == 0 && obligatoria)
         {
-            errores.Add($"La hoja {HojaCuentasGasto} no tiene cuentas.");
+            errores.Add($"La hoja {nombreHoja} no tiene cuentas.");
         }
-        return cuentas;
+        return nombres;
     }
 
     private static List<CuentaOrigen> LeerCuentasOrigen(XLWorkbook libro, List<string> errores)
     {
         var cuentas = new List<CuentaOrigen>();
-        if (!TryObtenerHoja(libro, HojaCuentasOrigen, errores, out var hoja))
+        if (!libro.TryGetWorksheet(HojaCuentasOrigen, out var hoja))
         {
+            errores.Add($"Falta la hoja {HojaCuentasOrigen}.");
             return cuentas;
         }
 
@@ -101,6 +148,7 @@ public static class ImportadorCatalogo
             return cuentas;
         }
 
+        var erroresAntes = errores.Count;
         var vistos = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         for (var fila = FilaEncabezados + 1; fila <= UltimaFila(hoja); fila++)
         {
@@ -137,30 +185,15 @@ public static class ImportadorCatalogo
                 continue;
             }
 
-            // El nombre exacto importa porque es el que aparece en el Excel exportado.
-            cuentas.Add(new CuentaOrigen { Nombre = esEfectivo ? NombreEfectivo : nombre, Tipo = tipo });
+            // Se conserva como está escrito: debe coincidir con el sistema de contabilidad.
+            cuentas.Add(new CuentaOrigen { Nombre = nombre, Tipo = tipo });
         }
 
-        if (cuentas.Count == 0 && errores.Count == 0)
+        if (cuentas.Count == 0 && errores.Count == erroresAntes)
         {
             errores.Add($"La hoja {HojaCuentasOrigen} no tiene cuentas.");
         }
-
-        if (!vistos.Contains(NombreEfectivo))
-        {
-            cuentas.Add(new CuentaOrigen { Nombre = NombreEfectivo, Tipo = TipoCuentaOrigen.Efectivo });
-        }
         return cuentas;
-    }
-
-    private static bool TryObtenerHoja(XLWorkbook libro, string nombre, List<string> errores, out IXLWorksheet hoja)
-    {
-        if (libro.TryGetWorksheet(nombre, out hoja!))
-        {
-            return true;
-        }
-        errores.Add($"Falta la hoja {nombre}.");
-        return false;
     }
 
     private static bool TryObtenerColumna(IXLWorksheet hoja, string encabezado, List<string> errores, out int columna)
