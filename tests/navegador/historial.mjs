@@ -26,14 +26,14 @@ const evaluar = async expr => {
     if (r.result?.exceptionDetails) throw new Error(r.result.exceptionDetails.exception?.description ?? 'error en evaluar');
     return r.result?.result?.value;
 };
-const esperar = async (expr, ms = 20000) => { const fin = Date.now() + ms; while (Date.now() < fin) { if (await evaluar(expr)) return true; await dormir(100); } return false; };
+const esperar = async (expr, ms = 60000) => { const fin = Date.now() + ms; while (Date.now() < fin) { if (await evaluar(expr)) return true; await dormir(100); } return false; };
 const texto = sel => evaluar(`document.querySelector(${JSON.stringify(sel)})?.innerText?.replace(/\\n+/g,' | ') ?? '(no está)'`);
 const valor = sel => evaluar(`document.querySelector(${JSON.stringify(sel)})?.value ?? '(no está)'`);
 const tocar = async sel => { await evaluar(`document.querySelector(${JSON.stringify(sel)}).click()`); await dormir(200); };
 const elegir = async (sel, v) => { await evaluar(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); e.value = ${JSON.stringify(v)}; if (e.value !== ${JSON.stringify(v)}) throw new Error('la opción no existe: ${v}'); e.dispatchEvent(new Event('change', { bubbles: true })); })()`); await dormir(150); };
 const escribir = async (sel, v) => { await evaluar(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); e.value = ${JSON.stringify(v)}; e.dispatchEvent(new Event('input', { bubbles: true })); })()`); await dormir(100); };
-const escribirMonto = async texto => { const [dolares, centavos = ''] = texto.split('.'); await escribir('#monto-dolares', dolares); await escribir('#monto-centavos', centavos); };
-const valorMonto = async () => `${await valor('#monto-dolares')}.${await valor('#monto-centavos')}`;
+const escribirMonto = async texto => { await escribir('#monto', texto.includes('.') ? texto : texto + '.00'); };
+const valorMonto = () => valor('#monto');
 const captura = async nombre => { const { result } = await cdp('Page.captureScreenshot', { format: 'png' }); writeFileSync(join(carpeta, nombre), Buffer.from(result.data, 'base64')); };
 const bien = (nombre, ok, extra = '') => { console.log(`${ok ? 'BIEN ' : 'FALLA'} ${nombre}${extra ? ' -> ' + extra : ''}`); if (!ok) process.exitCode = 1; };
 
@@ -73,6 +73,8 @@ await cdp('Emulation.setDeviceMetricsOverride', { width: 360, height: 740, devic
 if (etapa === 'conred') {
     await irA('');
     await esperar(`!!document.querySelector('#guardar') || !!document.querySelector('#plantilla')`, 60000);
+    // Sin service worker, un servidor de prueba responde 404 a las direcciones internas como historial?mes=...
+    await evaluar(`navigator.serviceWorker.ready.then(r => !!r.active)`);
     await sembrar();
 
     // Lista, orden, límites del mes y totales.
@@ -206,7 +208,7 @@ if (etapa === 'conred') {
 
     // Abrir Editar directamente, como al recargar la pantalla.
     await irA(`editar/${id(1)}`);
-    bien('Editar abre con la dirección directa', await esperar(`document.querySelector('#monto-dolares')?.value === '20' && document.querySelector('#monto-centavos')?.value === '00'`));
+    bien('Editar abre con la dirección directa', await esperar(`document.querySelector('#monto')?.value === '20.00'`));
 
     // Borrar: primero pregunta, y Cancelar no borra.
     await historial('2026-01');

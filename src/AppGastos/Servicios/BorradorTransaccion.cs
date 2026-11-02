@@ -25,8 +25,7 @@ public class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
             original = transaccion,
             Tipo = transaccion.Tipo,
             Fecha = transaccion.Fecha,
-            TextoDolares = decimal.Truncate(transaccion.Monto).ToString("0", CultureInfo.InvariantCulture),
-            TextoCentavos = ((transaccion.Monto - decimal.Truncate(transaccion.Monto)) * 100).ToString("00", CultureInfo.InvariantCulture),
+            Monto = transaccion.Monto,
             Metodo = transaccion.MetodoPago,
             Origen = transaccion.CuentaOrigen,
             Destino = transaccion.CuentaDestino,
@@ -35,13 +34,11 @@ public class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
     public TipoTransaccion Tipo { get; private set; } = TipoTransaccion.Gasto;
     public DateOnly? Fecha { get; set; } = hoy;
 
-    // Dos campos de solo dígitos: el teclado del iPhone puede no tener tecla de punto ni de coma.
-    public string TextoDolares { get; set; } = "";
-    public string TextoCentavos { get; set; } = "";
+    // Cero significa que aún no se ha escrito nada: un monto en cero no se puede guardar.
+    public decimal Monto { get; private set; }
 
-    // El monto tal como se va a guardar, para mostrarlo mientras se escribe. Null si todavía no es válido.
-    public decimal? MontoEscrito =>
-        RevisarMonto(TextoDolares, TextoCentavos) is null && TryLeerMonto(TextoDolares, TextoCentavos, out var monto) ? monto : null;
+    // Lo que muestra el campo. Vacío deja ver el ejemplo del campo, en lugar de un "0.00" que hay que borrar.
+    public string TextoMonto => Monto == 0 ? "" : Monto.ToString("0.00", CultureInfo.InvariantCulture);
 
     public MetodoPago? Metodo { get; private set; }
     public string Origen { get; private set; } = "";
@@ -165,9 +162,9 @@ public class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
             errores.Add("Falta la fecha.");
         }
 
-        if (RevisarMonto(TextoDolares, TextoCentavos) is { } errorMonto)
+        if (Monto == 0)
         {
-            errores.Add(errorMonto);
+            errores.Add("Falta el monto.");
         }
 
         if (Tipo == TipoTransaccion.Gasto && Metodo is null)
@@ -193,13 +190,12 @@ public class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
     // Llamar solo si Validar() no devolvió errores.
     public Transaccion Crear(Guid id)
     {
-        TryLeerMonto(TextoDolares, TextoCentavos, out var monto);
         return new Transaccion
         {
             Id = id,
             Tipo = Tipo,
             Fecha = Fecha!.Value,
-            Monto = monto,
+            Monto = Monto,
             MetodoPago = Tipo == TipoTransaccion.Gasto ? Metodo : null,
             CuentaOrigen = Origen,
             CuentaDestino = Destino,
@@ -209,45 +205,22 @@ public class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
     public static bool EsLaMismaCuenta(string a, string b) =>
         string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 
-    // Cualquiera de los dos campos puede ir vacío, pero no los dos. Los centavos son un número de
-    // centavos: "5" son $0.05, no $0.50. Por eso la pantalla muestra el monto mientras se escribe.
-    public static bool TryLeerMonto(string dolares, string centavos, out decimal monto)
+    // Estilo cajero: recibe lo que quedó en el campo y usa solo sus dígitos, leídos como centavos.
+    // Con "22.22" más un 3 llega "22.223", que son 22223 centavos: $222.23.
+    // Al borrar llega "22.2", que son 222 centavos: $2.22.
+    // Un monto más grande que el máximo se ignora, y el campo se queda con el monto anterior.
+    public void EscribirMonto(string entrada)
     {
-        monto = 0;
-        var textoDolares = dolares.Trim();
-        var textoCentavos = centavos.Trim();
-        if (textoDolares.Length + textoCentavos.Length == 0
-            || textoCentavos.Length > 2
-            || !textoDolares.All(char.IsAsciiDigit)
-            || !textoCentavos.All(char.IsAsciiDigit)
-            || !decimal.TryParse(textoDolares.Length == 0 ? "0" : textoDolares, NumberStyles.None, CultureInfo.InvariantCulture, out var enteros))
+        var digitos = new string(entrada.Where(char.IsAsciiDigit).ToArray());
+        if (digitos.Length == 0)
         {
-            return false;
+            Monto = 0;
         }
-
-        var fraccion = textoCentavos.Length == 0 ? 0 : int.Parse(textoCentavos, CultureInfo.InvariantCulture);
-        monto = enteros + fraccion / 100m;
-        return true;
-    }
-
-    private static string? RevisarMonto(string dolares, string centavos)
-    {
-        if (string.IsNullOrWhiteSpace(dolares) && string.IsNullOrWhiteSpace(centavos))
+        else if (decimal.TryParse(digitos, NumberStyles.None, CultureInfo.InvariantCulture, out var centavos)
+            && centavos / 100m <= MontoMaximo)
         {
-            return "Falta el monto.";
+            Monto = centavos / 100m;
         }
-
-        if (!TryLeerMonto(dolares, centavos, out var monto))
-        {
-            return "El monto no es válido. Escribe solo números: los dólares en un campo y hasta dos dígitos de centavos en el otro.";
-        }
-
-        if (monto <= 0)
-        {
-            return "El monto debe ser mayor que cero.";
-        }
-
-        return monto > MontoMaximo ? "El monto es demasiado grande." : null;
     }
 
     private static TipoCuentaOrigen TipoDeCuentaDelMetodo(MetodoPago metodo) => metodo switch
