@@ -1,0 +1,183 @@
+@using AppGastos.Modelos
+
+@* El formulario que comparten Registrar y Editar. Las reglas están en BorradorTransaccion. *@
+
+<div class="opciones" id="tipos" role="group" aria-label="Tipo de transacción">
+    @foreach (var tipo in Enum.GetValues<TipoTransaccion>())
+    {
+        <button type="button" class="opcion" id="tipo-@tipo" aria-pressed="@(Borrador.Tipo == tipo ? "true" : "false")"
+                disabled="@(ocupado || Borrador.MotivoTipoNoDisponible(tipo) is not null)" @onclick="() => CambiarTipo(tipo)">@tipo</button>
+    }
+</div>
+@foreach (var tipo in Enum.GetValues<TipoTransaccion>())
+{
+    @if (Borrador.MotivoTipoNoDisponible(tipo) is { } motivo)
+    {
+        <div class="aviso" id="motivo-@tipo">@motivo</div>
+    }
+}
+
+<label class="etiqueta" for="fecha">Fecha</label>
+@* El teléfono muestra este campo en su propio formato, por eso debajo se escribe en palabras. *@
+<input class="campo" id="fecha" type="date" @bind="Borrador.Fecha" @bind:after="AlCambiar" />
+@if (Borrador.Fecha is { } fechaEscogida)
+{
+    <p class="fecha-palabras" id="fecha-palabras">@FormatoFecha.EnPalabras(fechaEscogida)</p>
+}
+
+<label class="etiqueta" for="monto">Monto, en dólares</label>
+@* Es texto con teclado numérico: type="number" depende del idioma y puede borrar lo escrito sin avisar. *@
+<input class="campo" id="monto" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00"
+       @bind="Borrador.TextoMonto" @bind:event="oninput" @bind:after="AlCambiar" />
+
+@if (Borrador.Tipo == TipoTransaccion.Gasto)
+{
+    <span class="etiqueta" id="etiqueta-metodo">Método de pago</span>
+    <div class="opciones opciones-dos" id="metodos" role="group" aria-labelledby="etiqueta-metodo">
+        @foreach (var metodo in Enum.GetValues<MetodoPago>())
+        {
+            <button type="button" class="opcion" id="metodo-@metodo" aria-pressed="@(Borrador.Metodo == metodo ? "true" : "false")"
+                    disabled="@(ocupado || Borrador.MotivoMetodoNoDisponible(metodo) is not null)" @onclick="() => CambiarMetodo(metodo)">@BorradorTransaccion.TextoMetodo(metodo)</button>
+        }
+    </div>
+    @foreach (var metodo in Enum.GetValues<MetodoPago>())
+    {
+        @if (Borrador.MotivoMetodoNoDisponible(metodo) is { } motivo)
+        {
+            <div class="aviso" id="motivo-@metodo">@motivo</div>
+        }
+    }
+}
+
+@if (Borrador.OrigenEsAutomatico)
+{
+    <div class="aviso" id="origen-automatico">Se paga con la cuenta @Borrador.Origen.</div>
+}
+else if (Borrador.Tipo != TipoTransaccion.Gasto || Borrador.Metodo is not null)
+{
+    <label class="etiqueta" for="origen">@Borrador.EtiquetaOrigen</label>
+    <select class="campo" id="origen" value="@Borrador.Origen" @onchange="CambiarOrigen">
+        <option value="">Escoge una cuenta</option>
+        @foreach (var nombre in Borrador.OpcionesOrigen)
+        {
+            @* Sin la clave, al cambiar la lista el teléfono podría mostrar una cuenta y guardarse otra. *@
+            <option @key="nombre" value="@nombre">@nombre</option>
+        }
+    </select>
+}
+
+<label class="etiqueta" for="destino">@Borrador.EtiquetaDestino</label>
+<select class="campo" id="destino" value="@Borrador.Destino" @onchange="CambiarDestino">
+    <option value="">Escoge una cuenta</option>
+    @foreach (var nombre in Borrador.OpcionesDestino)
+    {
+        <option @key="nombre" value="@nombre">@nombre</option>
+    }
+</select>
+
+@* Tomar el foco hace que el teléfono desplace la pantalla hasta el mensaje. *@
+<div @ref="zonaMensaje" id="zona-mensaje" tabindex="-1">
+    @if (errores.Count > 0)
+    {
+        <div class="mensaje mensaje-error" id="errores" role="alert">
+            <p><strong>No se guardó. Revisa esto:</strong></p>
+            <ul>
+                @foreach (var error in errores)
+                {
+                    <li>@error</li>
+                }
+            </ul>
+        </div>
+    }
+    else if (exito is not null)
+    {
+        <div class="mensaje mensaje-exito" id="exito" role="status">@exito</div>
+    }
+</div>
+
+<button type="button" class="boton" id="guardar" disabled="@ocupado" @onclick="Enviar">@(ocupado ? "Guardando…" : $"Guardar {Borrador.Tipo.ToString().ToLowerInvariant()}")</button>
+
+@code {
+    [Parameter, EditorRequired]
+    public BorradorTransaccion Borrador { get; set; } = default!;
+
+    // Al editar se conserva el Id: así se reemplaza la transacción en lugar de crear otra.
+    [Parameter]
+    public Guid? IdExistente { get; set; }
+
+    // Guarda la transacción y devuelve el mensaje de éxito que se debe mostrar, si hay alguno.
+    [Parameter, EditorRequired]
+    public Func<Transaccion, Task<string?>> Guardar { get; set; } = default!;
+
+    private List<string> errores = [];
+    private string? exito;
+    private bool ocupado;
+    private bool enfocarMensaje;
+    private ElementReference zonaMensaje;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (enfocarMensaje)
+        {
+            enfocarMensaje = false;
+            await zonaMensaje.FocusAsync();
+        }
+    }
+
+    private void CambiarTipo(TipoTransaccion tipo)
+    {
+        Borrador.CambiarTipo(tipo);
+        AlCambiar();
+    }
+
+    private void CambiarMetodo(MetodoPago metodo)
+    {
+        Borrador.CambiarMetodo(metodo);
+        AlCambiar();
+    }
+
+    private void CambiarOrigen(ChangeEventArgs evento)
+    {
+        Borrador.CambiarOrigen(evento.Value?.ToString() ?? "");
+        AlCambiar();
+    }
+
+    private void CambiarDestino(ChangeEventArgs evento)
+    {
+        Borrador.CambiarDestino(evento.Value?.ToString() ?? "");
+        AlCambiar();
+    }
+
+    // El mensaje de éxito se refiere a la transacción anterior, y los errores se van quitando al corregirlos.
+    private void AlCambiar()
+    {
+        exito = null;
+        if (errores.Count > 0)
+        {
+            errores = Borrador.Validar();
+        }
+    }
+
+    private async Task Enviar()
+    {
+        exito = null;
+        errores = Borrador.Validar();
+        if (errores.Count == 0)
+        {
+            ocupado = true;
+            try
+            {
+                exito = await Guardar(Borrador.Crear(IdExistente ?? Guid.NewGuid()));
+            }
+            catch (Exception error)
+            {
+                errores = [$"No se pudo guardar en el teléfono. Lo que escribiste sigue aquí. Detalle: {error.Message}"];
+            }
+            finally
+            {
+                ocupado = false;
+            }
+        }
+        enfocarMensaje = true;
+    }
+}
