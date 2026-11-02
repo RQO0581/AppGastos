@@ -24,6 +24,8 @@ const valor = sel => evaluar(`document.querySelector('${sel}')?.value ?? '(no es
 const tocar = async sel => { await evaluar(`document.querySelector('${sel}').click()`); await dormir(200); };
 const elegir = async (sel, v) => { await evaluar(`(() => { const e = document.querySelector('${sel}'); e.value = ${JSON.stringify(v)}; e.dispatchEvent(new Event('change', { bubbles: true })); })()`); await dormir(150); };
 const escribir = async (sel, v) => { await evaluar(`(() => { const e = document.querySelector('${sel}'); e.value = ${JSON.stringify(v)}; e.dispatchEvent(new Event('input', { bubbles: true })); })()`); await dormir(100); };
+const escribirMonto = async texto => { const [dolares, centavos = ''] = texto.split('.'); await escribir('#monto-dolares', dolares); await escribir('#monto-centavos', centavos); };
+const valorMonto = async () => `${await valor('#monto-dolares')}.${await valor('#monto-centavos')}`;
 const crudo = () => evaluar(`new Promise(res => { const r = indexedDB.open('AppGastos'); r.onsuccess = () => { const d = r.result; const g = d.transaction('transacciones').objectStore('transacciones').getAll(); g.onsuccess = () => { d.close(); res(JSON.stringify(g.result.map(t => [t.fecha, t.monto]))); }; }; })`);
 const sembrar = () => evaluar(`new Promise((res, rej) => { const r = indexedDB.open('AppGastos'); r.onsuccess = () => { const d = r.result; const t = d.transaction(['cuentasOrigen','cuentasGasto','cuentasIngreso','transacciones'],'readwrite'); t.objectStore('transacciones').clear(); t.objectStore('cuentasOrigen').put({nombre:'Efectivo',tipo:'Efectivo'}); t.objectStore('cuentasOrigen').put({nombre:'Banco-Ejemplo',tipo:'Banco'}); t.objectStore('cuentasGasto').put({nombre:'Comida'}); t.objectStore('cuentasIngreso').put({nombre:'Ingreso-Ejemplo'}); t.oncomplete = () => { d.close(); res('ok'); }; t.onerror = () => rej(t.error); }; })`);
 const abrir = async () => { await cdp('Page.navigate', { url: base }); await dormir(300); await esperar(`!!document.querySelector('#guardar') || !!document.querySelector('#plantilla')`); };
@@ -31,7 +33,7 @@ const hoyJs = () => evaluar(`(() => { const d = new Date(); return d.getFullYear
 const bien = (nombre, ok, extra = '') => { console.log(`${ok ? 'BIEN ' : 'FALLA'} ${nombre}${extra ? ' -> ' + extra : ''}`); if (!ok) process.exitCode = 1; };
 // IndexedDB los devuelve ordenados por Id, que es aleatorio: el orden no dice nada, así que se ordenan antes de comparar.
 const enOrden = gastos => JSON.stringify(gastos.map(g => JSON.stringify(g)).sort());
-const gasto = async monto => { await escribir('#monto', monto); await tocar('#metodo-Efectivo'); await elegir('#destino', 'Comida'); await tocar('#guardar'); await dormir(300); };
+const gasto = async monto => { await escribirMonto(monto); await tocar('#metodo-Efectivo'); await elegir('#destino', 'Comida'); await tocar('#guardar'); await dormir(300); };
 
 await cdp('Runtime.enable');
 await cdp('Page.enable');
@@ -47,7 +49,7 @@ await gasto('1');
 console.log('mensaje:', await texto('#exito'));
 bien('el campo se queda en la fecha escogida', (await valor('#fecha')) === '2026-03-15', await valor('#fecha'));
 bien('las palabras también', (await texto('#fecha-palabras')) === 'Domingo, 15 de marzo de 2026', await texto('#fecha-palabras'));
-bien('el monto sí se vacía', (await valor('#monto')) === '');
+bien('el monto sí se vacía', (await valorMonto()) === '.');
 bien('el método sí se vacía', (await evaluar(`document.querySelector('#metodo-Efectivo').getAttribute('aria-pressed')`)) === 'false');
 bien('la cuenta sí se vacía', (await valor('#destino')) === '');
 

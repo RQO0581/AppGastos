@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text.RegularExpressions;
 using AppGastos.Modelos;
 
 namespace AppGastos.Servicios;
@@ -10,7 +9,7 @@ public record CatalogoCuentas(
     IReadOnlyList<CuentaIngreso> Ingreso);
 
 // Las reglas del formulario, sin nada de pantalla: así las pruebas automáticas pueden comprobarlas.
-public partial class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
+public class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
 {
     // Un número de JavaScript conserva los centavos exactos hasta este tamaño.
     private const decimal MontoMaximo = 99_999_999.99m;
@@ -26,7 +25,8 @@ public partial class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
             original = transaccion,
             Tipo = transaccion.Tipo,
             Fecha = transaccion.Fecha,
-            TextoMonto = transaccion.Monto.ToString("0.00", CultureInfo.InvariantCulture),
+            TextoDolares = decimal.Truncate(transaccion.Monto).ToString("0", CultureInfo.InvariantCulture),
+            TextoCentavos = ((transaccion.Monto - decimal.Truncate(transaccion.Monto)) * 100).ToString("00", CultureInfo.InvariantCulture),
             Metodo = transaccion.MetodoPago,
             Origen = transaccion.CuentaOrigen,
             Destino = transaccion.CuentaDestino,
@@ -34,7 +34,15 @@ public partial class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
 
     public TipoTransaccion Tipo { get; private set; } = TipoTransaccion.Gasto;
     public DateOnly? Fecha { get; set; } = hoy;
-    public string TextoMonto { get; set; } = "";
+
+    // Dos campos de solo dígitos: el teclado del iPhone puede no tener tecla de punto ni de coma.
+    public string TextoDolares { get; set; } = "";
+    public string TextoCentavos { get; set; } = "";
+
+    // El monto tal como se va a guardar, para mostrarlo mientras se escribe. Null si todavía no es válido.
+    public decimal? MontoEscrito =>
+        RevisarMonto(TextoDolares, TextoCentavos) is null && TryLeerMonto(TextoDolares, TextoCentavos, out var monto) ? monto : null;
+
     public MetodoPago? Metodo { get; private set; }
     public string Origen { get; private set; } = "";
     public string Destino { get; private set; } = "";
@@ -157,7 +165,7 @@ public partial class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
             errores.Add("Falta la fecha.");
         }
 
-        if (RevisarMonto(TextoMonto) is { } errorMonto)
+        if (RevisarMonto(TextoDolares, TextoCentavos) is { } errorMonto)
         {
             errores.Add(errorMonto);
         }
@@ -185,7 +193,7 @@ public partial class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
     // Llamar solo si Validar() no devolvió errores.
     public Transaccion Crear(Guid id)
     {
-        TryLeerMonto(TextoMonto, out var monto);
+        TryLeerMonto(TextoDolares, TextoCentavos, out var monto);
         return new Transaccion
         {
             Id = id,
@@ -201,27 +209,37 @@ public partial class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
     public static bool EsLaMismaCuenta(string a, string b) =>
         string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 
-    // Acepta punto o coma para los centavos, porque el teclado depende del idioma del teléfono.
-    // "1,250" se rechaza: podría significar 1250 o 1.25, y adivinar sería peor que preguntar.
-    public static bool TryLeerMonto(string texto, out decimal monto)
+    // Cualquiera de los dos campos puede ir vacío, pero no los dos. Los centavos son un número de
+    // centavos: "5" son $0.05, no $0.50. Por eso la pantalla muestra el monto mientras se escribe.
+    public static bool TryLeerMonto(string dolares, string centavos, out decimal monto)
     {
         monto = 0;
-        var limpio = texto.Trim();
-        return FormatoMonto().IsMatch(limpio)
-            && limpio.Any(char.IsAsciiDigit)
-            && decimal.TryParse(limpio.Replace(',', '.'), NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out monto);
+        var textoDolares = dolares.Trim();
+        var textoCentavos = centavos.Trim();
+        if (textoDolares.Length + textoCentavos.Length == 0
+            || textoCentavos.Length > 2
+            || !textoDolares.All(char.IsAsciiDigit)
+            || !textoCentavos.All(char.IsAsciiDigit)
+            || !decimal.TryParse(textoDolares.Length == 0 ? "0" : textoDolares, NumberStyles.None, CultureInfo.InvariantCulture, out var enteros))
+        {
+            return false;
+        }
+
+        var fraccion = textoCentavos.Length == 0 ? 0 : int.Parse(textoCentavos, CultureInfo.InvariantCulture);
+        monto = enteros + fraccion / 100m;
+        return true;
     }
 
-    private static string? RevisarMonto(string texto)
+    private static string? RevisarMonto(string dolares, string centavos)
     {
-        if (string.IsNullOrWhiteSpace(texto))
+        if (string.IsNullOrWhiteSpace(dolares) && string.IsNullOrWhiteSpace(centavos))
         {
             return "Falta el monto.";
         }
 
-        if (!TryLeerMonto(texto, out var monto))
+        if (!TryLeerMonto(dolares, centavos, out var monto))
         {
-            return "El monto no es válido. Escribe solo números, con hasta dos decimales. Por ejemplo: 1250.50.";
+            return "El monto no es válido. Escribe solo números: los dólares en un campo y hasta dos dígitos de centavos en el otro.";
         }
 
         if (monto <= 0)
@@ -272,7 +290,4 @@ public partial class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
 
     private static List<string> Ordenar(IEnumerable<string> nombres) =>
         nombres.Order(StringComparer.CurrentCultureIgnoreCase).ToList();
-
-    [GeneratedRegex("^[0-9]*([.,][0-9]{0,2})?$")]
-    private static partial Regex FormatoMonto();
 }

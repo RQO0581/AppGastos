@@ -157,7 +157,7 @@ public class BorradorTransaccionTests
     {
         var borrador = Nuevo();
         borrador.CambiarTipo(TipoTransaccion.Transferencia);
-        borrador.TextoMonto = "10";
+        borrador.TextoDolares = "10";
         borrador.CambiarOrigen(origen);
         borrador.CambiarDestino(destino);
 
@@ -172,7 +172,7 @@ public class BorradorTransaccionTests
         var borrador = Nuevo();
         var otraFecha = new DateOnly(2026, 3, 1);
         borrador.Fecha = otraFecha;
-        borrador.TextoMonto = "25";
+        borrador.TextoDolares = "25";
         borrador.CambiarMetodo(MetodoPago.Efectivo);
         borrador.CambiarDestino("Comida");
 
@@ -182,7 +182,7 @@ public class BorradorTransaccionTests
         Assert.Equal("", borrador.Origen);
         Assert.Equal("", borrador.Destino);
         Assert.Equal(otraFecha, borrador.Fecha);
-        Assert.Equal("25", borrador.TextoMonto);
+        Assert.Equal("25", borrador.TextoDolares);
     }
 
     [Fact]
@@ -227,47 +227,97 @@ public class BorradorTransaccionTests
     }
 
     [Theory]
-    [InlineData("104.24", "104.24")]
-    [InlineData("104,24", "104.24")]
-    [InlineData(" 5 ", "5")]
-    [InlineData("5.", "5")]
-    [InlineData(".5", "0.5")]
-    [InlineData("0.07", "0.07")]
-    [InlineData("99999999.99", "99999999.99")]
-    public void Monto_AceptaEstosTextos(string texto, string esperado)
+    [InlineData("104", "24", "104.24")]
+    [InlineData("104", "", "104")]
+    [InlineData("104", "00", "104")]
+    [InlineData("", "50", "0.50")]
+    [InlineData("0", "07", "0.07")]
+    [InlineData("5", "5", "5.05")]
+    [InlineData(" 5 ", " 25 ", "5.25")]
+    [InlineData("1250", "50", "1250.50")]
+    [InlineData("99999999", "99", "99999999.99")]
+    public void Monto_AceptaEstosTextos(string dolares, string centavos, string esperado)
     {
-        Assert.True(BorradorTransaccion.TryLeerMonto(texto, out var monto));
+        Assert.True(BorradorTransaccion.TryLeerMonto(dolares, centavos, out var monto));
         Assert.Equal(decimal.Parse(esperado, System.Globalization.CultureInfo.InvariantCulture), monto);
     }
 
     [Theory]
-    [InlineData("abc")]
-    [InlineData("-5")]
-    [InlineData("1,250")]
-    [InlineData("1,250.50")]
-    [InlineData("1.2.3")]
-    [InlineData("10.999")]
-    [InlineData(".")]
-    [InlineData("$5")]
-    [InlineData("١٢")]
-    [InlineData("99999999999999999999999999999999999999")]
-    public void Monto_RechazaEstosTextos(string texto)
+    [InlineData("", "")]
+    [InlineData("abc", "")]
+    [InlineData("-5", "")]
+    [InlineData("104.24", "")]
+    [InlineData("1,250", "")]
+    [InlineData("$5", "")]
+    [InlineData("١٢", "")]
+    [InlineData("5", "abc")]
+    [InlineData("5", ".5")]
+    [InlineData("5", "100")]
+    [InlineData("5", "١")]
+    [InlineData("99999999999999999999999999999999999999", "")]
+    public void Monto_RechazaEstosTextos(string dolares, string centavos)
     {
-        Assert.False(BorradorTransaccion.TryLeerMonto(texto, out _));
+        Assert.False(BorradorTransaccion.TryLeerMonto(dolares, centavos, out _));
     }
 
     [Theory]
-    [InlineData("", "Falta el monto.")]
-    [InlineData("0", "mayor que cero")]
-    [InlineData("0.00", "mayor que cero")]
-    [InlineData("1,250", "no es válido")]
-    [InlineData("100000000", "demasiado grande")]
-    public void Validar_ExplicaQueLePasaAlMonto(string texto, string esperado)
+    [InlineData("", "", "Falta el monto.")]
+    [InlineData("0", "", "mayor que cero")]
+    [InlineData("0", "00", "mayor que cero")]
+    [InlineData("1,250", "", "no es válido")]
+    [InlineData("100000000", "", "demasiado grande")]
+    public void Validar_ExplicaQueLePasaAlMonto(string dolares, string centavos, string esperado)
     {
         var borrador = Nuevo();
-        borrador.TextoMonto = texto;
+        borrador.TextoDolares = dolares;
+        borrador.TextoCentavos = centavos;
 
         Assert.Contains(borrador.Validar(), error => error.Contains(esperado));
+    }
+
+    [Theory]
+    [InlineData("104", "24", 104.24)]
+    [InlineData("104", "5", 104.05)]
+    [InlineData("", "50", 0.50)]
+    public void MontoEscrito_MuestraLoQueSeVaAGuardar(string dolares, string centavos, double esperado)
+    {
+        var borrador = Nuevo();
+        borrador.TextoDolares = dolares;
+        borrador.TextoCentavos = centavos;
+
+        Assert.Equal((decimal)esperado, borrador.MontoEscrito);
+    }
+
+    [Theory]
+    [InlineData("", "")]
+    [InlineData("0", "")]
+    [InlineData("abc", "")]
+    [InlineData("100000000", "")]
+    public void MontoEscrito_EsNullSiElMontoNoSePuedeGuardar(string dolares, string centavos)
+    {
+        var borrador = Nuevo();
+        borrador.TextoDolares = dolares;
+        borrador.TextoCentavos = centavos;
+
+        Assert.Null(borrador.MontoEscrito);
+    }
+
+    [Theory]
+    [InlineData(1250.5, "1250", "50")]
+    [InlineData(104.24, "104", "24")]
+    [InlineData(0.07, "0", "07")]
+    [InlineData(200, "200", "00")]
+    [InlineData(99999999.99, "99999999", "99")]
+    public void Editar_SeparaDolaresYCentavosYVuelveAlMismoMonto(double valor, string dolares, string centavos)
+    {
+        var guardada = GastoGuardado();
+        guardada.Monto = (decimal)valor;
+
+        var borrador = BorradorTransaccion.DesdeTransaccion(Catalogo, guardada);
+
+        Assert.Equal(dolares, borrador.TextoDolares);
+        Assert.Equal(centavos, borrador.TextoCentavos);
+        Assert.Equal(guardada.Monto, borrador.Crear(guardada.Id).Monto);
     }
 
     [Fact]
@@ -285,7 +335,7 @@ public class BorradorTransaccionTests
     public void Validar_GastoConMetodoPideLaCuentaDeOrigen()
     {
         var borrador = Nuevo();
-        borrador.TextoMonto = "5";
+        borrador.TextoDolares = "5";
         borrador.CambiarMetodo(MetodoPago.TarjetaDebito);
         borrador.CambiarDestino("Comida");
 
@@ -297,7 +347,8 @@ public class BorradorTransaccionTests
     {
         var id = Guid.NewGuid();
         var borrador = Nuevo();
-        borrador.TextoMonto = "104,24";
+        borrador.TextoDolares = "104";
+        borrador.TextoCentavos = "24";
         borrador.CambiarMetodo(MetodoPago.AthMovil);
         borrador.CambiarOrigen("Banco-Ejemplo");
         borrador.CambiarDestino("Telefonos");
@@ -323,7 +374,7 @@ public class BorradorTransaccionTests
         var borrador = Nuevo();
         borrador.CambiarMetodo(MetodoPago.Efectivo);
         borrador.CambiarTipo(tipo);
-        borrador.TextoMonto = "200";
+        borrador.TextoDolares = "200";
         borrador.CambiarOrigen(origen);
         borrador.CambiarDestino(destino);
 
@@ -364,7 +415,8 @@ public class BorradorTransaccionTests
 
         Assert.Equal(TipoTransaccion.Gasto, borrador.Tipo);
         Assert.Equal(new DateOnly(2026, 1, 15), borrador.Fecha);
-        Assert.Equal("1250.50", borrador.TextoMonto);
+        Assert.Equal("1250", borrador.TextoDolares);
+        Assert.Equal("50", borrador.TextoCentavos);
         Assert.Equal(MetodoPago.AthMovil, borrador.Metodo);
         Assert.Equal("Banco-Ejemplo", borrador.Origen);
         Assert.Equal("Telefonos", borrador.Destino);
@@ -383,7 +435,8 @@ public class BorradorTransaccionTests
 
             var borrador = BorradorTransaccion.DesdeTransaccion(Catalogo, GastoGuardado());
 
-            Assert.Equal("1250.50", borrador.TextoMonto);
+            Assert.Equal("1250", borrador.TextoDolares);
+        Assert.Equal("50", borrador.TextoCentavos);
         }
         finally
         {
@@ -413,7 +466,7 @@ public class BorradorTransaccionTests
         var guardada = GastoGuardado();
         var borrador = BorradorTransaccion.DesdeTransaccion(Catalogo, guardada);
 
-        borrador.TextoMonto = "5";
+        borrador.TextoDolares = "5";
         borrador.CambiarTipo(TipoTransaccion.Ingreso);
 
         Assert.Equal(1250.5m, guardada.Monto);

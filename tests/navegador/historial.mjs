@@ -32,6 +32,8 @@ const valor = sel => evaluar(`document.querySelector(${JSON.stringify(sel)})?.va
 const tocar = async sel => { await evaluar(`document.querySelector(${JSON.stringify(sel)}).click()`); await dormir(200); };
 const elegir = async (sel, v) => { await evaluar(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); e.value = ${JSON.stringify(v)}; if (e.value !== ${JSON.stringify(v)}) throw new Error('la opción no existe: ${v}'); e.dispatchEvent(new Event('change', { bubbles: true })); })()`); await dormir(150); };
 const escribir = async (sel, v) => { await evaluar(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); e.value = ${JSON.stringify(v)}; e.dispatchEvent(new Event('input', { bubbles: true })); })()`); await dormir(100); };
+const escribirMonto = async texto => { const [dolares, centavos = ''] = texto.split('.'); await escribir('#monto-dolares', dolares); await escribir('#monto-centavos', centavos); };
+const valorMonto = async () => `${await valor('#monto-dolares')}.${await valor('#monto-centavos')}`;
 const captura = async nombre => { const { result } = await cdp('Page.captureScreenshot', { format: 'png' }); writeFileSync(join(carpeta, nombre), Buffer.from(result.data, 'base64')); };
 const bien = (nombre, ok, extra = '') => { console.log(`${ok ? 'BIEN ' : 'FALLA'} ${nombre}${extra ? ' -> ' + extra : ''}`); if (!ok) process.exitCode = 1; };
 
@@ -118,14 +120,14 @@ if (etapa === 'conred') {
     await abrirEdicion(id(1));
     bien('Editar carga el tipo', (await evaluar(`document.querySelector('#tipo-Gasto').getAttribute('aria-pressed')`)) === 'true');
     bien('Editar carga la fecha', (await valor('#fecha')) === '2026-01-15');
-    bien('Editar carga el monto', (await valor('#monto')) === '104.24');
+    bien('Editar carga el monto', (await valorMonto()) === '104.24');
     bien('Editar carga el método', (await evaluar(`document.querySelector('#metodo-AthMovil').getAttribute('aria-pressed')`)) === 'true');
     bien('Editar carga el origen', (await valor('#origen')) === 'Banco-Ejemplo');
     bien('Editar carga el destino', (await valor('#destino')) === 'Telefonos');
     await captura('6-editar.png');
 
     // Cancelar no cambia nada y regresa al mes.
-    await escribir('#monto', '999');
+    await escribirMonto('999');
     await tocar('#cancelar');
     await esperar(`!!document.querySelector('#lista')`);
     bien('Cancelar regresa al mes', (await texto('#mes-actual')) === 'Enero de 2026');
@@ -134,7 +136,7 @@ if (etapa === 'conred') {
 
     // Guardar una edición.
     await abrirEdicion(id(1));
-    await escribir('#monto', '20');
+    await escribirMonto('20');
     bien('guardar vuelve al historial', await guardarYVolver());
     await esperar(`!!document.querySelector('#mensaje')`);
     bien('el mensaje dice qué cambió', (await texto('#mensaje')) === 'Gasto actualizado. Monto: $104.24 → $20.00.', await texto('#mensaje'));
@@ -204,7 +206,7 @@ if (etapa === 'conred') {
 
     // Abrir Editar directamente, como al recargar la pantalla.
     await irA(`editar/${id(1)}`);
-    bien('Editar abre con la dirección directa', await esperar(`document.querySelector('#monto')?.value === '20.00'`));
+    bien('Editar abre con la dirección directa', await esperar(`document.querySelector('#monto-dolares')?.value === '20' && document.querySelector('#monto-centavos')?.value === '00'`));
 
     // Borrar: primero pregunta, y Cancelar no borra.
     await historial('2026-01');
@@ -249,7 +251,7 @@ if (etapa === 'sinred') {
     await irA('historial?mes=2026-01');
     bien('abre el historial sin servidor', await esperar(`!!document.querySelector('#lista')`));
     await abrirEdicion(id(3));
-    await escribir('#monto', '555.55');
+    await escribirMonto('555.55');
     await guardarYVolver();
     await esperar(`!!document.querySelector('#mensaje')`);
     bien('edita sin servidor', (await transaccion(id(3))).monto === 555.55, await texto('#mensaje'));

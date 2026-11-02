@@ -192,6 +192,12 @@ h1:focus {
     font: inherit;
 }
 
+.monto {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 0.5rem;
+}
+
 .fecha-palabras {
     margin: -0.5rem 0 0.75rem;
     font-weight: 600;

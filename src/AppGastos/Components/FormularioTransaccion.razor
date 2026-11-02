@@ -25,10 +25,24 @@
     <p class="fecha-palabras" id="fecha-palabras">@FormatoFecha.EnPalabras(fechaEscogida)</p>
 }
 
-<label class="etiqueta" for="monto">Monto, en dólares</label>
-@* Es texto con teclado numérico: type="number" depende del idioma y puede borrar lo escrito sin avisar. *@
-<input class="campo" id="monto" type="text" inputmode="decimal" autocomplete="off" placeholder="0.00"
-       @bind="Borrador.TextoMonto" @bind:event="oninput" @bind:after="AlCambiar" />
+@* Dos campos de solo dígitos: el teclado del iPhone puede no tener tecla de punto ni de coma.
+   Son texto porque type="number" depende del idioma y puede borrar lo escrito sin avisar. *@
+<div class="monto">
+    <div class="monto-dolares">
+        <label class="etiqueta" for="monto-dolares">Dólares</label>
+        <input class="campo" id="monto-dolares" type="text" inputmode="numeric" autocomplete="off" placeholder="0"
+               @bind="Borrador.TextoDolares" @bind:event="oninput" @bind:after="AlCambiar" />
+    </div>
+    <div class="monto-centavos">
+        <label class="etiqueta" for="monto-centavos">Centavos</label>
+        <input class="campo" id="monto-centavos" type="text" inputmode="numeric" autocomplete="off" placeholder="00" maxlength="2"
+               @bind="Borrador.TextoCentavos" @bind:event="oninput" @bind:after="AlCambiar" />
+    </div>
+</div>
+@if (Borrador.MontoEscrito is { } montoEscrito)
+{
+    <p class="fecha-palabras" id="monto-palabras">Monto: @TextoTransaccion.Monto(montoEscrito)</p>
+}
 
 @if (Borrador.Tipo == TipoTransaccion.Gasto)
 {
