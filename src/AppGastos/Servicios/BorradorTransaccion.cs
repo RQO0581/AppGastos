@@ -51,6 +51,7 @@ public class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
     {
         TipoTransaccion.Gasto => "Cuenta con la que se pagó",
         TipoTransaccion.Ingreso => "Cuenta de ingreso",
+        TipoTransaccion.Devolucion => "Cuenta del gasto original",
         _ => "Cuenta de donde sale el dinero",
     };
 
@@ -58,6 +59,7 @@ public class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
     {
         TipoTransaccion.Gasto => "Cuenta de gasto",
         TipoTransaccion.Ingreso => "Cuenta donde entra el dinero",
+        TipoTransaccion.Devolucion => "Cuenta a donde vuelve el dinero",
         _ => "Cuenta a donde entra el dinero",
     };
 
@@ -65,6 +67,7 @@ public class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
     {
         TipoTransaccion.Gasto => Metodo is { } metodo ? CuentasDelMetodo(metodo) : [],
         TipoTransaccion.Ingreso => ConOrigenOriginal(catalogo.Ingreso.Select(c => c.Nombre)),
+        TipoTransaccion.Devolucion => ConOrigenOriginal(catalogo.Gasto.Select(c => c.Nombre)),
         _ => ConOrigenOriginal(catalogo.Origen.Select(c => c.Nombre)),
     };
 
@@ -72,6 +75,7 @@ public class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
     {
         TipoTransaccion.Gasto => ConDestinoOriginal(catalogo.Gasto.Select(c => c.Nombre)),
         TipoTransaccion.Ingreso => ConDestinoOriginal(CuentasDeTipo(TipoCuentaOrigen.Banco, TipoCuentaOrigen.Efectivo)),
+        TipoTransaccion.Devolucion => ConDestinoOriginal(catalogo.Origen.Select(c => c.Nombre)),
         _ => ConDestinoOriginal(catalogo.Origen.Select(c => c.Nombre)).Where(nombre => !EsLaMismaCuenta(nombre, Origen)).ToList(),
     };
 
@@ -83,6 +87,8 @@ public class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
             "Para registrar ingresos, importa un catálogo con cuentas en la hoja CuentasIngreso.",
         TipoTransaccion.Transferencia when catalogo.Origen.Count < 2 =>
             "Para registrar transferencias, el catálogo necesita al menos dos cuentas en la hoja CuentasOrigen.",
+        TipoTransaccion.Devolucion when catalogo.Gasto.Count == 0 || catalogo.Origen.Count == 0 =>
+            "Para registrar devoluciones, el catálogo necesita cuentas en las hojas CuentasGasto y CuentasOrigen.",
         _ => null,
     };
 

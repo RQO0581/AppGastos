@@ -27,13 +27,21 @@
 }
 else
 {
+    var totales = ResumenHistorial.Totales(transacciones);
     <ul class="totales" id="totales">
-        @foreach (var total in ResumenHistorial.Totales(transacciones))
+        @foreach (var total in totales)
         {
             <li id="total-@total.Tipo">
                 <span>@TextoTransaccion.Plural(total.Tipo) (@total.Cantidad)</span>
                 <strong>@TextoTransaccion.Monto(total.Suma)</strong>
             </li>
+            @if (total.Tipo == TipoTransaccion.Devolucion)
+            {
+                <li class="total-neto" id="gasto-neto">
+                    <span>Gasto neto</span>
+                    <strong>@TextoTransaccion.Monto(ResumenHistorial.GastoNeto(totales))</strong>
+                </li>
+            }
         }
     </ul>
 
@@ -46,7 +54,7 @@ else
         @foreach (var transaccion in transacciones)
         {
             <li class="lista-fila" @key="transaccion.Id" data-id="@transaccion.Id">
-                <strong>@transaccion.Tipo · @TextoTransaccion.Monto(transaccion.Monto)</strong><br />
+                <strong>@TextoTransaccion.Nombre(transaccion.Tipo) · @TextoTransaccion.Monto(transaccion.Monto)</strong><br />
                 @FormatoFecha.EnPalabras(transaccion.Fecha)<br />
                 @TextoTransaccion.Cuentas(transaccion)
                 @if (transaccion.Tipo == TipoTransaccion.Gasto)

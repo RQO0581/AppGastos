@@ -246,6 +246,13 @@ h1:focus {
         padding: 0.25rem 0;
     }
 
+    .totales .total-neto {
+        margin-bottom: 0.25rem;
+        border-top: 1px solid #8a8a8a;
+        border-bottom: 1px solid #8a8a8a;
+        font-weight: 600;
+    }
+
 .confirmar-borrado {
     margin: 0.5rem 0 0;
 }

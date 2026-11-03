@@ -10,18 +10,30 @@ public static class ResumenHistorial
 {
     private const string FormatoMes = "yyyy-MM";
 
-    // Siempre devuelve los tres tipos, aunque alguno esté en cero. Nunca se mezclan:
+    // Las devoluciones van junto a los gastos, porque los reducen.
+    private static readonly TipoTransaccion[] OrdenEnPantalla =
+        [TipoTransaccion.Gasto, TipoTransaccion.Devolucion, TipoTransaccion.Ingreso, TipoTransaccion.Transferencia];
+
+    // Siempre devuelve todos los tipos, aunque alguno esté en cero. Nunca se mezclan:
     // pagar una tarjeta no es un gasto nuevo, porque el gasto se registró al comprar con ella.
     public static IReadOnlyList<TotalPorTipo> Totales(IEnumerable<Transaccion> transacciones)
     {
         var lista = transacciones.ToList();
-        return Enum.GetValues<TipoTransaccion>()
+        return OrdenEnPantalla
             .Select(tipo =>
             {
                 var delTipo = lista.Where(t => t.Tipo == tipo).ToList();
                 return new TotalPorTipo(tipo, delTipo.Count, delTipo.Sum(t => t.Monto));
             })
             .ToList();
+    }
+
+    // Gastos menos devoluciones. Es negativo si en ese período se devolvió más de lo que se gastó.
+    public static decimal GastoNeto(IEnumerable<TotalPorTipo> totales)
+    {
+        var lista = totales.ToList();
+        return lista.Where(t => t.Tipo == TipoTransaccion.Gasto).Sum(t => t.Suma)
+            - lista.Where(t => t.Tipo == TipoTransaccion.Devolucion).Sum(t => t.Suma);
     }
 
     public static IReadOnlyList<Transaccion> MasRecientesPrimero(IEnumerable<Transaccion> transacciones) =>

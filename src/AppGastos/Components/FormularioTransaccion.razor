@@ -2,11 +2,12 @@
 
 @* El formulario que comparten Registrar y Editar. Las reglas están en BorradorTransaccion. *@
 
-<div class="opciones" id="tipos" role="group" aria-label="Tipo de transacción">
+@* Dos filas de dos: cuatro botones no caben en una sola fila en un teléfono angosto. *@
+<div class="opciones opciones-dos" id="tipos" role="group" aria-label="Tipo de transacción">
     @foreach (var tipo in Enum.GetValues<TipoTransaccion>())
     {
         <button type="button" class="opcion" id="tipo-@tipo" aria-pressed="@(Borrador.Tipo == tipo ? "true" : "false")"
-                disabled="@(ocupado || Borrador.MotivoTipoNoDisponible(tipo) is not null)" @onclick="() => CambiarTipo(tipo)">@tipo</button>
+                disabled="@(ocupado || Borrador.MotivoTipoNoDisponible(tipo) is not null)" @onclick="() => CambiarTipo(tipo)">@TextoTransaccion.Nombre(tipo)</button>
     }
 </div>
 @foreach (var tipo in Enum.GetValues<TipoTransaccion>())
@@ -97,7 +98,7 @@ else if (Borrador.Tipo != TipoTransaccion.Gasto || Borrador.Metodo is not null)
     }
 </div>
 
-<button type="button" class="boton" id="guardar" disabled="@ocupado" @onclick="Enviar">@(ocupado ? "Guardando…" : $"Guardar {Borrador.Tipo.ToString().ToLowerInvariant()}")</button>
+<button type="button" class="boton" id="guardar" disabled="@ocupado" @onclick="Enviar">@(ocupado ? "Guardando…" : $"Guardar {TextoTransaccion.Nombre(Borrador.Tipo).ToLowerInvariant()}")</button>
 
 @code {
     [Parameter, EditorRequired]

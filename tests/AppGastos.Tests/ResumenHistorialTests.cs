@@ -29,6 +29,7 @@ public class ResumenHistorialTests
         Assert.Equal(
             [
                 new TotalPorTipo(TipoTransaccion.Gasto, 2, 104.34m),
+                new TotalPorTipo(TipoTransaccion.Devolucion, 0, 0m),
                 new TotalPorTipo(TipoTransaccion.Ingreso, 1, 500m),
                 new TotalPorTipo(TipoTransaccion.Transferencia, 1, 200m),
             ],
@@ -36,11 +37,11 @@ public class ResumenHistorialTests
     }
 
     [Fact]
-    public void Totales_SinTransaccionesMuestranLosTresTiposEnCero()
+    public void Totales_SinTransaccionesMuestranTodosLosTiposEnCero()
     {
         var totales = ResumenHistorial.Totales([]);
 
-        Assert.Equal(3, totales.Count);
+        Assert.Equal(Enum.GetValues<TipoTransaccion>().Length, totales.Count);
         Assert.All(totales, total =>
         {
             Assert.Equal(0, total.Cantidad);
