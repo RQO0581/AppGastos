@@ -25,6 +25,10 @@ public static class ExportacionTransacciones
         _ => $"Gastos_todo_al_{Texto(hoy)}.xlsx",
     };
 
+    // Del día 1 del mes actual hasta hoy, según la fecha del teléfono.
+    public static (DateOnly Desde, DateOnly Hasta) RangoPorDefecto(DateOnly hoy) =>
+        (ResumenHistorial.PrimerDiaDelMes(hoy), hoy);
+
     public static bool RangoEsValido(DateOnly? desde, DateOnly? hasta) =>
         desde is null || hasta is null || desde <= hasta;
 

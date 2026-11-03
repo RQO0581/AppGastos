@@ -221,6 +221,8 @@ if (etapa === 'conred') {
 
     // Exportar.
     await irA('exportar');
+    await esperar(`!!document.querySelector('#quitar-fechas')`);
+    await tocar('#quitar-fechas');
     await esperar(`!!document.querySelector('#exportar') && !document.querySelector('#exportar').disabled`);
     bien('Exportar muestra las devoluciones', (await texto('#total-Devolucion')).startsWith('Devoluciones (4)'), await texto('#total-Devolucion'));
     bien('Exportar no muestra Gasto neto', (await texto('#gasto-neto')) === '(no está)');
@@ -247,6 +249,8 @@ if (etapa === 'sinred') {
     await historial('2026-04');
     bien('el Historial la muestra sin servidor', (await texto('#gasto-neto')) === 'Gasto neto | -$7.50', await texto('#gasto-neto'));
     await irA('exportar');
+    await esperar(`!!document.querySelector('#quitar-fechas')`);
+    await tocar('#quitar-fechas');
     await esperar(`!!document.querySelector('#exportar') && !document.querySelector('#exportar').disabled`);
     await fecha('#desde', '2026-04-01');
     await dormir(300);

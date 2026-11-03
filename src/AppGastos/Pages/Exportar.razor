@@ -7,7 +7,7 @@
 
 <h1>Exportar</h1>
 
-<p>Escoge un rango de fechas, o déjalo vacío para exportar todas las transacciones.</p>
+<p>Por defecto, del día 1 de este mes hasta hoy. Puedes cambiar las fechas, o quitarlas para exportar todas las transacciones.</p>
 
 <label class="etiqueta" for="desde">Desde</label>
 <input class="campo" id="desde" type="date" @bind="desde" @bind:after="CargarTransacciones" />
@@ -90,6 +90,10 @@ else if (transacciones is not null)
 
     protected override async Task OnInitializedAsync()
     {
+        var rango = ExportacionTransacciones.RangoPorDefecto(DateOnly.FromDateTime(DateTime.Now));
+        desde = rango.Desde;
+        hasta = rango.Hasta;
+
         try
         {
             correo = await Almacen.ObtenerCorreoAsync() ?? "";

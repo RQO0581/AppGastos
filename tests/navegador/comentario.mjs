@@ -217,6 +217,8 @@ if (etapa === 'conred') {
 
     // Exportar: columna D, en las dos filas.
     await irA('exportar');
+    await esperar(`!!document.querySelector('#quitar-fechas')`);
+    await tocar('#quitar-fechas');
     await esperar(`!!document.querySelector('#exportar') && !document.querySelector('#exportar').disabled`);
     const nombre = await exportar();
     bien('descarga el Excel', !!nombre, nombre);
@@ -247,6 +249,8 @@ if (etapa === 'sinred') {
     await escribir('#comentario', 'Editado sin conexión');
     bien('se edita sin servidor', (await guardarEdicion()).includes('Sin conexión → Editado sin conexión'));
     await irA('exportar');
+    await esperar(`!!document.querySelector('#quitar-fechas')`);
+    await tocar('#quitar-fechas');
     await esperar(`!!document.querySelector('#exportar') && !document.querySelector('#exportar').disabled`);
     const nombre = await exportar();
     const filas = leerFilas(join(descargas, nombre)).slice(1).filter(f => (f.G ?? f.H) === '77');

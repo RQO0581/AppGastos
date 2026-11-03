@@ -101,6 +101,24 @@ public class ExportacionTransaccionesTests
         }
     }
 
+    [Theory]
+    [InlineData(2026, 11, 2, 2026, 11, 1)]
+    [InlineData(2026, 11, 1, 2026, 11, 1)]
+    [InlineData(2026, 2, 28, 2026, 2, 1)]
+    [InlineData(2028, 2, 29, 2028, 2, 1)]
+    [InlineData(2026, 12, 31, 2026, 12, 1)]
+    [InlineData(2027, 1, 1, 2027, 1, 1)]
+    public void RangoPorDefecto_VaDelDiaUnoDelMesHastaHoy(int anio, int mes, int dia, int anioDesde, int mesDesde, int diaDesde)
+    {
+        var hoy = new DateOnly(anio, mes, dia);
+
+        var rango = ExportacionTransacciones.RangoPorDefecto(hoy);
+
+        Assert.Equal(new DateOnly(anioDesde, mesDesde, diaDesde), rango.Desde);
+        Assert.Equal(hoy, rango.Hasta);
+        Assert.True(ExportacionTransacciones.RangoEsValido(rango.Desde, rango.Hasta));
+    }
+
     [Fact]
     public void Rango_DesdeNoPuedeSerDespuesDeHasta()
     {

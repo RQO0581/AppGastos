@@ -48,7 +48,9 @@ const captura = async nombre => { const { result } = await cdp('Page.captureScre
 const bien = (nombre, ok, extra = '') => { console.log(`${ok ? 'BIEN ' : 'FALLA'} ${nombre}${extra ? ' -> ' + extra : ''}`); if (!ok) process.exitCode = 1; };
 
 const leerBd = almacen => evaluar(`new Promise(res => { const r = indexedDB.open('AppGastos'); r.onsuccess = () => { const d = r.result; const g = d.transaction('${almacen}').objectStore('${almacen}').getAll(); g.onsuccess = () => { d.close(); res(JSON.stringify(g.result)); }; }; })`).then(JSON.parse);
-const abrir = async () => { await cdp('Page.navigate', { url: base + 'exportar' }); await dormir(300); return esperar(`!!document.querySelector('#exportar') && !document.querySelector('#exportar').disabled || !!document.querySelector('#sin-transacciones')`); };
+const abrirPorDefecto = async () => { await cdp('Page.navigate', { url: base + 'exportar' }); await dormir(300); return esperar(`!!document.querySelector('#exportar') && !document.querySelector('#exportar').disabled || !!document.querySelector('#sin-transacciones')`); };
+// Las transacciones de esta prueba son de enero y febrero: para verlas hay que quitar las fechas por defecto.
+const abrir = async () => { await abrirPorDefecto(); await tocar('#quitar-fechas'); return esperar(`!document.querySelector('#exportar').disabled`); };
 
 // Lee un .xlsx sin librerías: un .xlsx es un .zip con archivos XML.
 const leerZip = ruta => {
@@ -273,6 +275,44 @@ if (etapa === 'conred') {
     await esperar(`document.querySelector('#mensaje')?.innerText.includes('No se compartió')`, 5000);
     bien('si cancela, lo dice sin parecer un éxito', (await evaluar(`document.querySelector('#mensaje').className`)) === 'aviso', await evaluar(`document.querySelector('#mensaje').className`));
     bien('si cancela, no descarga', readdirSync(descargas).length === 0);
+
+    // Fechas por defecto: del día 1 del mes actual hasta hoy.
+    const textoHoy = await hoy();
+    const primero = textoHoy.slice(0, 8) + '01';
+    const mesAnterior = await evaluar(`(() => { const d = new Date(); const u = new Date(d.getFullYear(), d.getMonth(), 0); return u.getFullYear() + '-' + String(u.getMonth()+1).padStart(2,'0') + '-' + String(u.getDate()).padStart(2,'0'); })()`);
+    const poner = lista => evaluar(`new Promise((res, rej) => { const r = indexedDB.open('AppGastos'); r.onsuccess = () => { const d = r.result; const t = d.transaction('transacciones','readwrite'); ${JSON.stringify(lista)}.forEach(c => t.objectStore('transacciones').put(c)); t.oncomplete = () => { d.close(); res('ok'); }; t.onerror = () => rej(t.error); }; })`);
+    const quitar = ids => evaluar(`new Promise((res, rej) => { const r = indexedDB.open('AppGastos'); r.onsuccess = () => { const d = r.result; const t = d.transaction('transacciones','readwrite'); ${JSON.stringify(ids)}.forEach(c => t.objectStore('transacciones').delete(c)); t.oncomplete = () => { d.close(); res('ok'); }; t.onerror = () => rej(t.error); }; })`);
+    await abrirPorDefecto();
+    bien('sin nada este mes, lo dice', (await texto('#sin-transacciones')).includes('No hay transacciones'));
+    bien('sin nada este mes, botón gris', await desactivado('#exportar'));
+    bien('y se puede quitar las fechas', (await texto('#quitar-fechas')) === 'Quitar las fechas');
+    await poner([t(6, 'Gasto', textoHoy, 12, 'Efectivo', 'Efectivo', 'Telefonos'), t(7, 'Gasto', primero, 13, 'Efectivo', 'Efectivo', 'Telefonos'), t(8, 'Gasto', mesAnterior, 14, 'Efectivo', 'Efectivo', 'Telefonos')]);
+    await abrirPorDefecto();
+    bien('Desde trae el día 1 del mes', (await valor('#desde')) === primero, await valor('#desde'));
+    bien('Hasta trae la fecha de hoy', (await valor('#hasta')) === textoHoy, await valor('#hasta'));
+    const [anio, mes, dia] = textoHoy.split('-').map(Number);
+    const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    bien('Desde en palabras', (await texto('#desde-palabras')).endsWith(`, 1 de ${meses[mes - 1]} de ${anio}`), await texto('#desde-palabras'));
+    bien('Hasta en palabras', (await texto('#hasta-palabras')).endsWith(`, ${dia} de ${meses[mes - 1]} de ${anio}`), await texto('#hasta-palabras'));
+    bien('solo cuenta este mes', (await texto('#total-Gasto')).includes('(2)') &&(await texto('#total-Gasto')).includes('$25.00'), await texto('#total-Gasto'));
+    await captura('7-por-defecto.png');
+    vaciarDescargas();
+    await evaluar(FALLO_COMO_ANDROID);
+    await escribirCorreo('nombre@ejemplo.com');
+    await tocar('#exportar');
+    const porDefecto = await esperarDescarga();
+    bien('el nombre lleva el rango por defecto', porDefecto.join() === `Gastos_${primero}_a_${textoHoy}.xlsx`, porDefecto.join());
+    const filasDefecto = leerFilas(join(descargas, porDefecto[0])).slice(1);
+    bien('el archivo trae solo este mes', filasDefecto.length === 4 && !filasDefecto.some(f => (f.G ?? f.H) === '14'), JSON.stringify(filasDefecto));
+    await fecha('#desde', mesAnterior);
+    await esperar(`document.querySelector('#total-Gasto')?.innerText.includes('(3)')`, 5000);
+    bien('Desde se puede cambiar', (await texto('#total-Gasto')).includes('$39.00'), await texto('#total-Gasto'));
+    await fecha('#hasta', mesAnterior);
+    await esperar(`document.querySelector('#total-Gasto')?.innerText.includes('(1)')`, 5000);
+    bien('Hasta se puede cambiar', (await texto('#total-Gasto')).includes('$14.00'), await texto('#total-Gasto'));
+    await abrirPorDefecto();
+    bien('al volver, trae otra vez el mes actual', (await valor('#desde')) === primero && (await valor('#hasta')) === textoHoy);
+    await quitar([id(6), id(7), id(8)]);
 
     // Lo temporal ya no está.
     await tocar('#menu-mas');
