@@ -169,7 +169,7 @@ await sinLaPalabraVieja('Exportar');
 
 // El resto de las pantallas.
 await irA('borrar');
-await esperar(`!!document.querySelector('#faltan-fechas')`);
+await esperar(`!!document.querySelector('#desde')?.value`);
 await sinLaPalabraVieja('Borrar por fechas');
 await irA('borrar-todo');
 await esperar(`!!document.querySelector('#confirmar-borrado')`);

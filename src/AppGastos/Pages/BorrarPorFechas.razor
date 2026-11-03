@@ -6,7 +6,7 @@
 
 <h1>Borrar por fechas</h1>
 
-<p>Escoge las dos fechas. Se borran también las transacciones de esos dos días.</p>
+<p>Por defecto, del día 1 de este mes hasta hoy. Puedes cambiar las fechas. Se borran también las transacciones de esos dos días.</p>
 
 <label class="etiqueta" for="desde">Desde</label>
 <input class="campo" id="desde" type="date" @bind="desde" @bind:after="CargarTransacciones" />
@@ -58,6 +58,8 @@ else if (transacciones is not null)
     {
         <div class="aviso" id="confirmacion" role="alert">
             <p>@ReglasBorrado.Pregunta(transacciones.Length) No se puede deshacer.</p>
+            @* Se repiten aquí para verlos en el momento de confirmar, sin tener que subir en la pantalla. *@
+            <ListaTotales Transacciones="transacciones" Prefijo="confirmar-" />
             <span class="lista-acciones">
                 <button type="button" class="boton" id="confirmar-si" disabled="@ocupado" @onclick="Borrar">Sí, borrar</button>
                 <button type="button" class="boton" id="confirmar-no" disabled="@ocupado" @onclick="() => confirmando = false">Cancelar</button>
@@ -81,6 +83,14 @@ else if (transacciones is not null)
     private bool mensajeEsError;
     private bool enfocarMensaje;
     private ElementReference zonaMensaje;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var rango = ExportacionTransacciones.RangoPorDefecto(DateOnly.FromDateTime(DateTime.Now));
+        desde = rango.Desde;
+        hasta = rango.Hasta;
+        await LeerRango();
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

@@ -1,10 +1,10 @@
 @using AppGastos.Modelos
 
 @* La cantidad y la suma de cada tipo. Los tipos nunca se mezclan. *@
-<ul class="totales" id="totales">
+<ul class="totales" id="@(Prefijo)totales">
     @foreach (var total in ResumenHistorial.Totales(Transacciones))
     {
-        <li id="total-@total.Tipo">
+        <li id="@(Prefijo)total-@total.Tipo">
             <span>@TextoTransaccion.Plural(total.Tipo) (@total.Cantidad)</span>
             <strong>@TextoTransaccion.Monto(total.Suma)</strong>
         </li>
@@ -14,4 +14,8 @@
 @code {
     [Parameter, EditorRequired]
     public IEnumerable<Transaccion> Transacciones { get; set; } = [];
+
+    // Para poder mostrar la lista dos veces en una pantalla sin repetir los mismos id.
+    [Parameter]
+    public string Prefijo { get; set; } = "";
 }

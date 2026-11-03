@@ -264,6 +264,11 @@ h1:focus {
         font-weight: 600;
     }
 
+/* Dentro de la confirmación, que ya tiene el mismo fondo: un fondo blanco separa los totales. */
+#confirmacion .totales {
+    background: #ffffff;
+}
+
 .zona-peligro {
     margin-top: 2rem;
     padding-top: 1rem;

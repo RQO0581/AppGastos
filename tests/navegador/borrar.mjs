@@ -67,7 +67,10 @@ const TRANSACCIONES = [
 ];
 const sembrar = () => evaluar(`new Promise((res, rej) => { const r = indexedDB.open('AppGastos'); r.onsuccess = () => { const d = r.result; const t = d.transaction(['cuentasOrigen','cuentasGasto','cuentasIngreso','transacciones','ajustes'],'readwrite'); for (const s of ['cuentasOrigen','cuentasGasto','cuentasIngreso','transacciones','ajustes']) t.objectStore(s).clear(); ${JSON.stringify(ORIGEN)}.forEach(c => t.objectStore('cuentasOrigen').put(c)); ${JSON.stringify(GASTO)}.forEach(c => t.objectStore('cuentasGasto').put(c)); ${JSON.stringify(INGRESO)}.forEach(c => t.objectStore('cuentasIngreso').put(c)); ${JSON.stringify(TRANSACCIONES)}.forEach(c => t.objectStore('transacciones').put(c)); t.objectStore('ajustes').put({ clave: 'correo', valor: 'nombre@ejemplo.com' }); t.oncomplete = () => { d.close(); res('ok'); }; t.onerror = () => rej(t.error); }; })`);
 const abrirBorrarTodo = async () => { await irA('borrar-todo'); return esperar(`!!document.querySelector('#confirmar-borrado') || !!document.querySelector('#sin-transacciones')`); };
-const abrirBorrar = async () => { await irA('borrar'); return esperar(`!!document.querySelector('#faltan-fechas')`); };
+const borrarListo = `!!document.querySelector('#desde')?.value && (!!document.querySelector('#borrar-rango') || !!document.querySelector('#sin-transacciones'))`;
+const abrirBorrar = async () => { await irA('borrar'); return esperar(borrarListo); };
+const hoy = () => evaluar(`(() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); })()`);
+const ponerTransacciones = lista => evaluar(`new Promise((res, rej) => { const r = indexedDB.open('AppGastos'); r.onsuccess = () => { const d = r.result; const t = d.transaction('transacciones','readwrite'); ${JSON.stringify(lista)}.forEach(c => t.objectStore('transacciones').put(c)); t.oncomplete = () => { d.close(); res('ok'); }; t.onerror = () => rej(t.error); }; })`);
 const ROJO = 'rgb(179, 38, 30)', AZUL = 'rgb(21, 101, 192)', GRIS = 'rgb(201, 201, 201)';
 
 await cdp('Runtime.enable');
@@ -88,12 +91,51 @@ if (etapa === 'conred') {
     await esperar(`!!document.querySelector('#ir-borrar')`);
     bien('Más enlaza a Borrar por fechas', (await texto('#ir-borrar')) === 'Borrar por fechas');
     await tocar('#ir-borrar');
-    await esperar(`!!document.querySelector('#faltan-fechas')`);
+    await esperar(borrarListo);
+
+    // Fechas por defecto: del día 1 del mes actual hasta hoy.
+    const textoHoy = await hoy();
+    const primero = textoHoy.slice(0, 8) + '01';
+    const [anio, mes, dia] = textoHoy.split('-').map(Number);
+    const meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    const mesAnterior = await evaluar(`(() => { const d = new Date(); const u = new Date(d.getFullYear(), d.getMonth(), 0); return u.getFullYear() + '-' + String(u.getMonth()+1).padStart(2,'0') + '-' + String(u.getDate()).padStart(2,'0'); })()`);
+    bien('Desde trae el día 1 del mes', (await valor('#desde')) === primero, await valor('#desde'));
+    bien('Hasta trae la fecha de hoy', (await valor('#hasta')) === textoHoy, await valor('#hasta'));
+    bien('Desde en palabras por defecto', (await texto('#desde-palabras')).endsWith(`, 1 de ${meses[mes - 1]} de ${anio}`), await texto('#desde-palabras'));
+    bien('Hasta en palabras por defecto', (await texto('#hasta-palabras')).endsWith(`, ${dia} de ${meses[mes - 1]} de ${anio}`), await texto('#hasta-palabras'));
+    await captura('8-por-defecto.png');
+
+    // Con el rango por defecto solo cuenta este mes, y el mes anterior no se borra.
+    await sembrar();
+    await ponerTransacciones([t('09', 'Gasto', textoHoy, 11, 'Efectivo', 'Efectivo', 'Telefonos'), t('10', 'Gasto', primero, 12, 'Efectivo', 'Efectivo', 'Telefonos'), t('11', 'Gasto', mesAnterior, 13, 'Efectivo', 'Efectivo', 'Telefonos')]);
+    await abrirBorrar();
+    const delMes = TRANSACCIONES.filter(x => x.fecha >= primero && x.fecha <= textoHoy).length + 2;
+    bien('el rango por defecto cuenta solo este mes', (await texto('#cantidad-total')) === `En este rango hay ${delMes} transacciones:`, await texto('#cantidad-total'));
+    await tocar('#borrar-rango');
+    bien('la confirmación dice la cantidad', (await texto('#confirmacion')).includes(`¿Seguro que deseas borrar ${delMes} transacciones?`), await texto('#confirmacion'));
+    await tocar('#confirmar-no');
+    await tocar('#borrar-rango');
+    await tocar('#confirmar-si');
+    await esperar(`!!document.querySelector('#mensaje')`, 5000);
+    bien('borrar con el rango por defecto dice cuántas', (await texto('#mensaje')) === `Se borraron ${delMes} transacciones.`, await texto('#mensaje'));
+    const restantes = (await leerBd('transacciones')).map(x => x.fecha);
+    bien('el mes anterior no se borra', restantes.includes(mesAnterior), restantes.join(' '));
+    bien('de este mes no queda nada', !restantes.some(f => f >= primero && f <= textoHoy), restantes.join(' '));
+    await sembrar();
+    await abrirBorrar();
+
+    // Las fechas se pueden cambiar.
+    await fecha('#desde', '2026-01-05');
+    bien('Desde se puede cambiar', (await valor('#desde')) === '2026-01-05' && (await texto('#desde-palabras')) === 'Lunes, 5 de enero de 2026', await texto('#desde-palabras'));
+    await abrirBorrar();
+    bien('al volver, trae otra vez el mes actual', (await valor('#desde')) === primero && (await valor('#hasta')) === textoHoy);
 
     // Sin las dos fechas no ofrece borrar.
+    await fecha('#desde', '');
+    await fecha('#hasta', '');
+    await esperar(`!!document.querySelector('#faltan-fechas')`, 5000);
     bien('sin fechas, las pide', (await texto('#faltan-fechas')).includes('Escoge las fechas'));
     bien('sin fechas, no hay botón de borrar', (await texto('#borrar-rango')) === '(no está)');
-    bien('los campos empiezan vacíos', (await valor('#desde')) === '' && (await valor('#hasta')) === '');
     await fecha('#desde', '2026-01-05');
     bien('con una sola fecha, sigue sin ofrecer borrar', (await texto('#borrar-rango')) === '(no está)');
     bien('Desde en palabras', (await texto('#desde-palabras')) === 'Lunes, 5 de enero de 2026', await texto('#desde-palabras'));
@@ -149,6 +191,13 @@ if (etapa === 'conred') {
     await esperar(`!!document.querySelector('#borrar-rango')`, 5000);
     await tocar('#borrar-rango');
     bien('pregunta con la cantidad', (await texto('#confirmacion')).includes('¿Seguro que deseas borrar 4 transacciones?'), await texto('#confirmacion'));
+    bien('la confirmación repite los gastos', (await texto('#confirmar-total-Gasto')) === 'Gastos (1) | $104.24', await texto('#confirmar-total-Gasto'));
+    bien('la confirmación repite las devoluciones', (await texto('#confirmar-total-Devolucion')) === 'Devoluciones (1) | $30.00', await texto('#confirmar-total-Devolucion'));
+    bien('la confirmación repite los ingresos', (await texto('#confirmar-total-Ingreso')) === 'Ingresos (1) | $500.00');
+    bien('la confirmación repite las transferencias', (await texto('#confirmar-total-Transferencia')) === 'Transferencias (1) | $200.00');
+    bien('sin id repetidos', await evaluar(`(() => { const ids = [...document.querySelectorAll('[id]')].map(e => e.id); return new Set(ids).size === ids.length; })()`));
+    await evaluar(`document.querySelector('#confirmacion').scrollIntoView({ block: 'center' })`);
+    await dormir(100);
     bien('preguntar no borra', (await leerBd('transacciones')).length === 8);
     await captura('8-pregunta.png');
     await tocar('#confirmar-no');
