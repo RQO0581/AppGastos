@@ -14,6 +14,8 @@ public class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
     // Un número de JavaScript conserva los centavos exactos hasta este tamaño.
     private const decimal MontoMaximo = 99_999_999.99m;
 
+    public const int LargoMaximoComentario = 100;
+
     private DateOnly hoy = hoy;
 
     // Solo al editar: la transacción tal como estaba guardada.
@@ -29,6 +31,7 @@ public class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
             Metodo = transaccion.MetodoPago,
             Origen = transaccion.CuentaOrigen,
             Destino = transaccion.CuentaDestino,
+            Comentario = transaccion.Comentario,
         };
 
     public TipoTransaccion Tipo { get; private set; } = TipoTransaccion.Gasto;
@@ -43,6 +46,7 @@ public class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
     public MetodoPago? Metodo { get; private set; }
     public string Origen { get; private set; } = "";
     public string Destino { get; private set; } = "";
+    public string Comentario { get; set; } = "";
 
     // En efectivo la cuenta es una sola, así que no se pregunta.
     public bool OrigenEsAutomatico => Tipo == TipoTransaccion.Gasto && Metodo == MetodoPago.Efectivo;
@@ -190,6 +194,12 @@ public class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
         {
             errores.Add("La cuenta de donde sale el dinero y la cuenta a donde entra no pueden ser la misma.");
         }
+
+        // No se corta sin avisar: el usuario decide qué quitar. El campo normalmente no deja pasar del máximo.
+        if (Comentario.Trim().Length > LargoMaximoComentario)
+        {
+            errores.Add($"El comentario tiene {Comentario.Trim().Length} caracteres. El máximo es {LargoMaximoComentario}.");
+        }
         return errores;
     }
 
@@ -205,6 +215,7 @@ public class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
             MetodoPago = Tipo == TipoTransaccion.Gasto ? Metodo : null,
             CuentaOrigen = Origen,
             CuentaDestino = Destino,
+            Comentario = Comentario.Trim(),
         };
     }
 

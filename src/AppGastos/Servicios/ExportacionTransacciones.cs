@@ -12,7 +12,7 @@ public static class ExportacionTransacciones
     public static IReadOnlyList<MovimientoExcel> Movimientos(IEnumerable<Transaccion> transacciones) =>
         transacciones
             .OrderBy(t => t.Fecha)
-            .Select(t => new MovimientoExcel(t.Fecha, t.CuentaOrigen, t.CuentaDestino, t.Monto))
+            .Select(t => new MovimientoExcel(t.Fecha, t.CuentaOrigen, t.CuentaDestino, t.Monto, t.Comentario))
             .ToList();
 
     // El nombre lleva el rango porque el teléfono guarda cada exportación como otra copia en Descargas.

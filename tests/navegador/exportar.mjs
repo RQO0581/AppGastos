@@ -24,7 +24,13 @@ ws.addEventListener('message', ev => {
     if (m.method === 'Runtime.exceptionThrown') consola.push(m.params.exceptionDetails.text + ' ' + (m.params.exceptionDetails.exception?.description ?? ''));
     if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') consola.push(m.params.args.map(a => a.value ?? a.description).join(' '));
 });
-const cdp = (method, params = {}) => new Promise(r => { const id = siguiente++; pendientes.set(id, r); ws.send(JSON.stringify({ id, method, params })); });
+// Con límite: sin él, una espera que nunca termina deja la prueba atascada para siempre, sin fallar.
+const cdp = (method, params = {}) => new Promise((r, rechazar) => {
+    const id = siguiente++;
+    const reloj = setTimeout(() => { pendientes.delete(id); rechazar(new Error(`Sin respuesta en 90 s: ${method} ${params.expression?.slice(0, 120) ?? ''}`)); }, 90000);
+    pendientes.set(id, m => { clearTimeout(reloj); r(m); });
+    ws.send(JSON.stringify({ id, method, params }));
+});
 const evaluar = async expr => {
     const r = await cdp('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true, userGesture: true });
     if (r.result?.exceptionDetails) throw new Error(r.result.exceptionDetails.exception?.description ?? 'error en evaluar');

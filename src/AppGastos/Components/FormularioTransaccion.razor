@@ -78,6 +78,11 @@ else if (Borrador.Tipo != TipoTransaccion.Gasto || Borrador.Metodo is not null)
     }
 </select>
 
+<label class="etiqueta" for="comentario">Comentario (opcional)</label>
+<input class="campo" id="comentario" type="text" autocomplete="off" maxlength="@BorradorTransaccion.LargoMaximoComentario"
+       @bind="Borrador.Comentario" @bind:event="oninput" @bind:after="AlCambiar" />
+<p class="contador" id="comentario-contador">@Borrador.Comentario.Length de @BorradorTransaccion.LargoMaximoComentario caracteres</p>
+
 @* Tomar el foco hace que el teléfono desplace la pantalla hasta el mensaje. *@
 <div @ref="zonaMensaje" id="zona-mensaje" tabindex="-1">
     @if (errores.Count > 0)

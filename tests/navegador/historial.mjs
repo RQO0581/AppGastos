@@ -20,7 +20,13 @@ ws.addEventListener('message', ev => {
     if (m.method === 'Runtime.exceptionThrown') consola.push(m.params.exceptionDetails.text + ' ' + (m.params.exceptionDetails.exception?.description ?? ''));
     if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') consola.push(m.params.args.map(a => a.value ?? a.description).join(' '));
 });
-const cdp = (method, params = {}) => new Promise(r => { const id = siguiente++; pendientes.set(id, r); ws.send(JSON.stringify({ id, method, params })); });
+// Con límite: sin él, una espera que nunca termina deja la prueba atascada para siempre, sin fallar.
+const cdp = (method, params = {}) => new Promise((r, rechazar) => {
+    const id = siguiente++;
+    const reloj = setTimeout(() => { pendientes.delete(id); rechazar(new Error(`Sin respuesta en 90 s: ${method} ${params.expression?.slice(0, 120) ?? ''}`)); }, 90000);
+    pendientes.set(id, m => { clearTimeout(reloj); r(m); });
+    ws.send(JSON.stringify({ id, method, params }));
+});
 const evaluar = async expr => {
     const r = await cdp('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true });
     if (r.result?.exceptionDetails) throw new Error(r.result.exceptionDetails.exception?.description ?? 'error en evaluar');
@@ -144,7 +150,7 @@ if (etapa === 'conred') {
     bien('el mensaje dice qué cambió', (await texto('#mensaje')) === 'Gasto actualizado. Monto: $104.24 → $20.00.', await texto('#mensaje'));
     await captura('6-editado.png');
     bien('no crea un duplicado', (await leerBd('transacciones')).length === 6);
-    bien('conserva el Id y el resto', JSON.stringify(await transaccion(id(1))) === JSON.stringify({ ...TRANSACCIONES[0], monto: 20 }), JSON.stringify(await transaccion(id(1))));
+    bien('conserva el Id y el resto', JSON.stringify(await transaccion(id(1))) === JSON.stringify({ ...TRANSACCIONES[0], monto: 20, comentario: '' }), JSON.stringify(await transaccion(id(1))));
     bien('el total se actualiza', (await texto('#total-Gasto')).includes('$20.10'), await texto('#total-Gasto'));
 
     // El mensaje solo aparece una vez.

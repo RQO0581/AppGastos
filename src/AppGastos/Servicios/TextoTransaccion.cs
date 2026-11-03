@@ -55,6 +55,7 @@ public static class TextoTransaccion
         Comparar(cambios, "Método de pago", TextoMetodo(antes.MetodoPago), TextoMetodo(despues.MetodoPago));
         Comparar(cambios, "Cuenta de origen", antes.CuentaOrigen, despues.CuentaOrigen);
         Comparar(cambios, "Cuenta de destino", antes.CuentaDestino, despues.CuentaDestino);
+        Comparar(cambios, "Comentario", TextoComentario(antes.Comentario), TextoComentario(despues.Comentario));
 
         if (cambios.Count == 0)
         {
@@ -67,6 +68,9 @@ public static class TextoTransaccion
 
     public static string TextoMetodo(MetodoPago? metodo) =>
         metodo is { } valor ? BorradorTransaccion.TextoMetodo(valor) : "Sin método";
+
+    private static string TextoComentario(string comentario) =>
+        comentario.Length > 0 ? comentario : "Sin comentario";
 
     private static bool EsFemenino(TipoTransaccion tipo) =>
         tipo is TipoTransaccion.Transferencia or TipoTransaccion.Devolucion;
@@ -82,6 +86,7 @@ public static class TextoTransaccion
     private static string Resumen(Transaccion t, string masculino, string femenino)
     {
         var accion = EsFemenino(t.Tipo) ? femenino : masculino;
-        return $"{Nombre(t.Tipo)} {accion}: {Monto(t.Monto)}. {FormatoFecha.EnPalabras(t.Fecha)}. {Cuentas(t)}.";
+        var comentario = t.Comentario.Length > 0 ? $" Comentario: {t.Comentario}" : "";
+        return $"{Nombre(t.Tipo)} {accion}: {Monto(t.Monto)}. {FormatoFecha.EnPalabras(t.Fecha)}. {Cuentas(t)}.{comentario}";
     }
 }

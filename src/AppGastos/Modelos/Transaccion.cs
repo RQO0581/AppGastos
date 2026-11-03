@@ -18,4 +18,7 @@ public class Transaccion
     // Gasto: cuenta de gasto. Ingreso: banco o Efectivo. Transferencia: a donde entra el dinero.
     // Devolución: banco, tarjeta o Efectivo a donde vuelve el dinero.
     public string CuentaDestino { get; set; } = "";
+
+    // Opcional. Las transacciones guardadas antes de que existiera este campo no lo traen, y quedan vacías.
+    public string Comentario { get; set; } = "";
 }
