@@ -38,15 +38,7 @@ else if (transacciones is { Count: 0 })
 }
 else if (transacciones is not null)
 {
-    <ul class="totales" id="totales">
-        @foreach (var total in ResumenHistorial.Totales(transacciones))
-        {
-            <li id="total-@total.Tipo">
-                <span>@TextoTransaccion.Plural(total.Tipo) (@total.Cantidad)</span>
-                <strong>@TextoTransaccion.Monto(total.Suma)</strong>
-            </li>
-        }
-    </ul>
+    <ListaTotales Transacciones="transacciones" />
 }
 
 <label class="etiqueta" for="correo">Correo de destino</label>
@@ -73,6 +65,16 @@ else if (transacciones is not null)
 <button type="button" class="boton" id="exportar" disabled="@(ocupado || transacciones is not { Count: > 0 })" @onclick="ExportarExcel">@(ocupado ? "Creando el Excel…" : "Exportar a Excel")</button>
 
 @code {
+    // Las pantallas de borrado abren Exportar con el rango que se va a borrar.
+    [SupplyParameterFromQuery(Name = "desde")]
+    public string? TextoDesde { get; set; }
+
+    [SupplyParameterFromQuery(Name = "hasta")]
+    public string? TextoHasta { get; set; }
+
+    [SupplyParameterFromQuery(Name = "todo")]
+    public string? TextoTodo { get; set; }
+
     private const string ClaseExito = "mensaje mensaje-exito";
     private const string ClaseError = "mensaje mensaje-error";
 
@@ -90,10 +92,6 @@ else if (transacciones is not null)
 
     protected override async Task OnInitializedAsync()
     {
-        var rango = ExportacionTransacciones.RangoPorDefecto(DateOnly.FromDateTime(DateTime.Now));
-        desde = rango.Desde;
-        hasta = rango.Hasta;
-
         try
         {
             correo = await Almacen.ObtenerCorreoAsync() ?? "";
@@ -102,6 +100,14 @@ else if (transacciones is not null)
         {
             MostrarError($"No se pudo leer el correo guardado: {error.Message}");
         }
+    }
+
+    // Se ejecuta también al cambiar la dirección sin salir de la pantalla, por ejemplo al tocar Exportar en el menú.
+    protected override async Task OnParametersSetAsync()
+    {
+        var rango = ExportacionTransacciones.RangoInicial(TextoDesde, TextoHasta, TextoTodo, DateOnly.FromDateTime(DateTime.Now));
+        desde = rango.Desde;
+        hasta = rango.Hasta;
         await CargarTransacciones();
     }
 

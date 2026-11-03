@@ -3,18 +3,18 @@
 @inject Almacen Almacen
 @inject CompartirArchivos Compartir
 
-<PageTitle>Importar catálogo</PageTitle>
+<PageTitle>Importar cuentas</PageTitle>
 
-<h1>Importar catálogo</h1>
+<h1>Importar cuentas</h1>
 
 <p id="catalogo-actual">
     @if (cuentasOrigenActuales + cuentasGastoActuales == 0)
     {
-        <text>Aún no hay catálogo. Importa tu Excel de cuentas para empezar.</text>
+        <text>Aún no hay cuentas. Importa tu Excel de cuentas para empezar.</text>
     }
     else
     {
-        <text>Catálogo actual: @cuentasOrigenActuales cuentas de origen, @cuentasGastoActuales de gasto y @cuentasIngresoActuales de ingreso.</text>
+        <text>Cuentas actuales: @cuentasOrigenActuales de origen, @cuentasGastoActuales de gasto y @cuentasIngresoActuales de ingreso.</text>
     }
 </p>
 
@@ -49,14 +49,14 @@
     <div id="vista-previa">
         @foreach (var tipo in Enum.GetValues<TipoCuentaOrigen>())
         {
-            var cuentas = lectura.CuentasOrigen.Where(c => c.Tipo == tipo).OrderBy(c => c.Nombre, StringComparer.CurrentCultureIgnoreCase).ToList();
+            var cuentas = OrdenCuentas.Ordenar(lectura.CuentasOrigen.Where(c => c.Tipo == tipo).Select(c => c.Nombre));
             @if (cuentas.Count > 0)
             {
                 <h3>@ImportadorCatalogo.TextoTipo(tipo) (@cuentas.Count)</h3>
                 <ul>
                     @foreach (var cuenta in cuentas)
                     {
-                        <li>@cuenta.Nombre</li>
+                        <li>@cuenta</li>
                     }
                 </ul>
             }
@@ -64,17 +64,17 @@
 
         <h3>Cuentas de gasto (@lectura.CuentasGasto.Count)</h3>
         <ul>
-            @foreach (var cuenta in lectura.CuentasGasto.OrderBy(c => c.Nombre, StringComparer.CurrentCultureIgnoreCase))
+            @foreach (var cuenta in OrdenCuentas.Ordenar(lectura.CuentasGasto.Select(c => c.Nombre)))
             {
-                <li>@cuenta.Nombre</li>
+                <li>@cuenta</li>
             }
         </ul>
 
         <h3>Cuentas de ingreso (@lectura.CuentasIngreso.Count)</h3>
         <ul>
-            @foreach (var cuenta in lectura.CuentasIngreso.OrderBy(c => c.Nombre, StringComparer.CurrentCultureIgnoreCase))
+            @foreach (var cuenta in OrdenCuentas.Ordenar(lectura.CuentasIngreso.Select(c => c.Nombre)))
             {
-                <li>@cuenta.Nombre</li>
+                <li>@cuenta</li>
             }
         </ul>
     </div>
@@ -95,9 +95,9 @@
     }
     @if (cuentasOrigenActuales + cuentasGastoActuales > 0)
     {
-        <div class="aviso">Esto reemplazará el catálogo actual. Las transacciones ya registradas no cambian.</div>
+        <div class="aviso">Esto reemplazará las cuentas actuales. Las transacciones ya registradas no cambian.</div>
     }
-    <button class="boton" id="importar" disabled="@ocupado" @onclick="Importar">Importar catálogo</button>
+    <button class="boton" id="importar" disabled="@ocupado" @onclick="Importar">Importar cuentas</button>
 }
 
 <h2>¿No tienes el archivo?</h2>
@@ -130,7 +130,7 @@
         }
         catch (Exception error)
         {
-            MostrarError($"No se pudo leer el catálogo guardado: {error.Message}");
+            MostrarError($"No se pudieron leer las cuentas guardadas: {error.Message}");
         }
     }
 
@@ -175,14 +175,14 @@
         try
         {
             await Almacen.ReemplazarCatalogoAsync(lectura!.CuentasOrigen, lectura.CuentasGasto, lectura.CuentasIngreso);
-            mensaje = $"Catálogo importado: {lectura.CuentasOrigen.Count} cuentas de origen, {lectura.CuentasGasto.Count} de gasto y {lectura.CuentasIngreso.Count} de ingreso. Las transacciones no cambiaron.";
+            mensaje = $"Cuentas importadas: {lectura.CuentasOrigen.Count} de origen, {lectura.CuentasGasto.Count} de gasto y {lectura.CuentasIngreso.Count} de ingreso. Las transacciones no cambiaron.";
             mensajeEsError = false;
             lectura = null;
             await CargarCatalogoActual();
         }
         catch (Exception error)
         {
-            MostrarError($"No se pudo guardar el catálogo. El catálogo anterior sigue igual. Detalle: {error.Message}");
+            MostrarError($"No se pudieron guardar las cuentas. Las cuentas anteriores siguen igual. Detalle: {error.Message}");
         }
         finally
         {

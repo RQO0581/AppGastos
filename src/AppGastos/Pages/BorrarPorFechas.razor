@@ -1,0 +1,164 @@
+@page "/borrar"
+@using AppGastos.Modelos
+@inject Almacen Almacen
+
+<PageTitle>Borrar por fechas</PageTitle>
+
+<h1>Borrar por fechas</h1>
+
+<p>Escoge las dos fechas. Se borran también las transacciones de esos dos días.</p>
+
+<label class="etiqueta" for="desde">Desde</label>
+<input class="campo" id="desde" type="date" @bind="desde" @bind:after="CargarTransacciones" />
+@if (desde is { } fechaDesde)
+{
+    <p class="fecha-palabras" id="desde-palabras">@FormatoFecha.EnPalabras(fechaDesde)</p>
+}
+
+<label class="etiqueta" for="hasta">Hasta</label>
+<input class="campo" id="hasta" type="date" @bind="hasta" @bind:after="CargarTransacciones" />
+@if (hasta is { } fechaHasta)
+{
+    <p class="fecha-palabras" id="hasta-palabras">@FormatoFecha.EnPalabras(fechaHasta)</p>
+}
+
+@* Tomar el foco hace que el teléfono desplace la pantalla hasta el mensaje. *@
+<div @ref="zonaMensaje" id="zona-mensaje" tabindex="-1">
+    @if (mensaje is not null)
+    {
+        <div class="mensaje @(mensajeEsError ? "mensaje-error" : "mensaje-exito")" id="mensaje" role="status">@mensaje</div>
+    }
+</div>
+
+@if (desde is null || hasta is null)
+{
+    <div class="aviso" id="faltan-fechas">Escoge las fechas "Desde" y "Hasta" para ver qué se borraría.</div>
+}
+else if (!ExportacionTransacciones.RangoEsValido(desde, hasta))
+{
+    <div class="mensaje mensaje-error" id="rango-invalido" role="alert">La fecha "Desde" no puede ser después de la fecha "Hasta".</div>
+}
+else if (transacciones is { Length: 0 })
+{
+    <div class="aviso" id="sin-transacciones">No hay transacciones en este rango.</div>
+}
+else if (transacciones is not null)
+{
+    <p id="cantidad-total">En este rango hay <strong>@ReglasBorrado.Cantidad(transacciones.Length)</strong>:</p>
+    <ListaTotales Transacciones="transacciones" />
+
+    <div class="aviso" id="recomendacion">
+        <p><strong>Exporta este rango antes de borrar.</strong> Esto no se puede deshacer.</p>
+        <a class="boton" id="exportar-rango" href="@ExportacionTransacciones.EnlaceConRango(desde.Value, hasta.Value)">Exportar este rango</a>
+    </div>
+
+    <p>No se borran las cuentas, el correo guardado ni los archivos que ya estén en Descargas.</p>
+
+    @if (confirmando)
+    {
+        <div class="aviso" id="confirmacion" role="alert">
+            <p>@ReglasBorrado.Pregunta(transacciones.Length) No se puede deshacer.</p>
+            <span class="lista-acciones">
+                <button type="button" class="boton" id="confirmar-si" disabled="@ocupado" @onclick="Borrar">Sí, borrar</button>
+                <button type="button" class="boton" id="confirmar-no" disabled="@ocupado" @onclick="() => confirmando = false">Cancelar</button>
+            </span>
+        </div>
+    }
+    else
+    {
+        <button type="button" class="boton" id="borrar-rango" @onclick="PedirConfirmacion">Borrar estas transacciones</button>
+    }
+}
+
+@code {
+    private DateOnly? desde;
+    private DateOnly? hasta;
+    private Transaccion[]? transacciones;
+    private int ultimaLectura;
+    private bool confirmando;
+    private bool ocupado;
+    private string? mensaje;
+    private bool mensajeEsError;
+    private bool enfocarMensaje;
+    private ElementReference zonaMensaje;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (enfocarMensaje)
+        {
+            enfocarMensaje = false;
+            await zonaMensaje.FocusAsync();
+        }
+    }
+
+    // Al cambiar las fechas, la confirmación anterior ya no vale: se refería a otro rango.
+    private async Task CargarTransacciones()
+    {
+        confirmando = false;
+        mensaje = null;
+        await LeerRango();
+    }
+
+    private async Task LeerRango()
+    {
+        transacciones = null;
+        var lectura = ++ultimaLectura;
+        if (desde is null || hasta is null || !ExportacionTransacciones.RangoEsValido(desde, hasta))
+        {
+            return;
+        }
+
+        try
+        {
+            var leidas = await Almacen.ListarTransaccionesAsync(desde, hasta);
+            // Si se cambió la fecha mientras se leía, esta respuesta ya no sirve.
+            if (lectura == ultimaLectura)
+            {
+                transacciones = leidas;
+            }
+        }
+        catch (Exception error)
+        {
+            MostrarMensaje($"No se pudieron leer las transacciones: {error.Message}", esError: true);
+        }
+    }
+
+    private void PedirConfirmacion()
+    {
+        mensaje = null;
+        confirmando = true;
+    }
+
+    private async Task Borrar()
+    {
+        // Un segundo toque seguido no debe borrar otra vez: el mensaje diría que se borraron 0.
+        if (ocupado || !confirmando)
+        {
+            return;
+        }
+
+        ocupado = true;
+        try
+        {
+            var borradas = await Almacen.BorrarTransaccionesPorRangoAsync(desde!.Value, hasta!.Value);
+            confirmando = false;
+            MostrarMensaje(ReglasBorrado.Resultado(borradas), esError: false);
+            await LeerRango();
+        }
+        catch (Exception error)
+        {
+            MostrarMensaje($"No se pudo borrar. Las transacciones siguen guardadas. Detalle: {error.Message}", esError: true);
+        }
+        finally
+        {
+            ocupado = false;
+        }
+    }
+
+    private void MostrarMensaje(string texto, bool esError)
+    {
+        mensaje = texto;
+        mensajeEsError = esError;
+        enfocarMensaje = true;
+    }
+}

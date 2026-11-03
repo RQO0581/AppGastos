@@ -29,6 +29,31 @@ public static class ExportacionTransacciones
     public static (DateOnly Desde, DateOnly Hasta) RangoPorDefecto(DateOnly hoy) =>
         (ResumenHistorial.PrimerDiaDelMes(hoy), hoy);
 
+    public const string EnlaceTodo = "exportar?todo=1";
+
+    public static string EnlaceConRango(DateOnly desde, DateOnly hasta) =>
+        $"exportar?desde={Texto(desde)}&hasta={Texto(hasta)}";
+
+    // Las fechas con las que abre Exportar, según la dirección. Si no trae nada válido, usa el rango por defecto.
+    public static (DateOnly? Desde, DateOnly? Hasta) RangoInicial(string? desde, string? hasta, string? todo, DateOnly hoy)
+    {
+        if (todo == "1")
+        {
+            return (null, null);
+        }
+
+        if (LeerFecha(desde) is { } inicio && LeerFecha(hasta) is { } fin && inicio <= fin)
+        {
+            return (inicio, fin);
+        }
+
+        var porDefecto = RangoPorDefecto(hoy);
+        return (porDefecto.Desde, porDefecto.Hasta);
+    }
+
+    private static DateOnly? LeerFecha(string? texto) =>
+        DateOnly.TryParseExact(texto, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var fecha) ? fecha : null;
+
     public static bool RangoEsValido(DateOnly? desde, DateOnly? hasta) =>
         desde is null || hasta is null || desde <= hasta;
 

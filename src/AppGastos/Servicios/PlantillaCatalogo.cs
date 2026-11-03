@@ -5,7 +5,7 @@ namespace AppGastos.Servicios;
 
 public static class PlantillaCatalogo
 {
-    public const string NombreArchivo = "Catalogo_plantilla.xlsx";
+    public const string NombreArchivo = "Cuentas_plantilla.xlsx";
 
     private const int UltimaFilaConLista = 500;
 

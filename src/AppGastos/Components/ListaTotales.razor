@@ -1,0 +1,17 @@
+@using AppGastos.Modelos
+
+@* La cantidad y la suma de cada tipo. Los tipos nunca se mezclan. *@
+<ul class="totales" id="totales">
+    @foreach (var total in ResumenHistorial.Totales(Transacciones))
+    {
+        <li id="total-@total.Tipo">
+            <span>@TextoTransaccion.Plural(total.Tipo) (@total.Cantidad)</span>
+            <strong>@TextoTransaccion.Monto(total.Suma)</strong>
+        </li>
+    }
+</ul>
+
+@code {
+    [Parameter, EditorRequired]
+    public IEnumerable<Transaccion> Transacciones { get; set; } = [];
+}

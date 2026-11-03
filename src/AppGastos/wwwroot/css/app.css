@@ -126,6 +126,11 @@ h1:focus {
     cursor: pointer;
 }
 
+    /* Excepción pedida por el usuario, solo para "Borrar todas las transacciones". Va antes del gris, que debe ganarle. */
+    .boton-peligro {
+        background: #b3261e;
+    }
+
     /* Activo es azul y desactivado es gris, en todas las pantallas. */
     .boton:disabled,
     .boton-inactivo {
@@ -258,6 +263,12 @@ h1:focus {
         border-bottom: 1px solid #8a8a8a;
         font-weight: 600;
     }
+
+.zona-peligro {
+    margin-top: 2rem;
+    padding-top: 1rem;
+    border-top: 1px solid #8a8a8a;
+}
 
 .confirmar-borrado {
     margin: 0.5rem 0 0;

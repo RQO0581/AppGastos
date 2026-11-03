@@ -24,6 +24,10 @@ public class Almacen(IJSRuntime js)
     public ValueTask<int> BorrarTransaccionesPorRangoAsync(DateOnly desde, DateOnly hasta) =>
         js.InvokeAsync<int>("appGastos.almacen.borrarTransaccionesPorRango", desde, hasta);
 
+    // Borra las transacciones de todos los meses. Devuelve cuántas se borraron.
+    public ValueTask<int> BorrarTodasLasTransaccionesAsync() =>
+        js.InvokeAsync<int>("appGastos.almacen.borrarTodasLasTransacciones");
+
     public ValueTask<CuentaOrigen[]> ListarCuentasOrigenAsync() =>
         js.InvokeAsync<CuentaOrigen[]>("appGastos.almacen.listarCuentasOrigen");
 

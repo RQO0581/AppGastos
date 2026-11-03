@@ -88,18 +88,18 @@ public class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
         // Al editar, el tipo original sigue disponible aunque el catálogo ya no tenga sus cuentas.
         _ when tipo == original?.Tipo => null,
         TipoTransaccion.Ingreso when catalogo.Ingreso.Count == 0 =>
-            "Para registrar ingresos, importa un catálogo con cuentas en la hoja CuentasIngreso.",
+            "Para registrar ingresos, importa cuentas en la hoja CuentasIngreso.",
         TipoTransaccion.Transferencia when catalogo.Origen.Count < 2 =>
-            "Para registrar transferencias, el catálogo necesita al menos dos cuentas en la hoja CuentasOrigen.",
+            "Para registrar transferencias, importa al menos dos cuentas en la hoja CuentasOrigen.",
         TipoTransaccion.Devolucion when catalogo.Gasto.Count == 0 || catalogo.Origen.Count == 0 =>
-            "Para registrar devoluciones, el catálogo necesita cuentas en las hojas CuentasGasto y CuentasOrigen.",
+            "Para registrar devoluciones, importa cuentas en las hojas CuentasGasto y CuentasOrigen.",
         _ => null,
     };
 
     public string? MotivoMetodoNoDisponible(MetodoPago metodo) =>
         CuentasDelMetodo(metodo).Count > 0
             ? null
-            : $"{TextoMetodo(metodo)} no está disponible porque el catálogo no tiene cuentas para ese método.";
+            : $"{TextoMetodo(metodo)} no está disponible porque no hay cuentas para ese método.";
 
     public static string TextoMetodo(MetodoPago metodo) => metodo switch
     {
@@ -278,6 +278,5 @@ public class BorradorTransaccion(CatalogoCuentas catalogo, DateOnly hoy)
     private List<string> CuentasDeTipo(params TipoCuentaOrigen[] tipos) =>
         Ordenar(catalogo.Origen.Where(c => tipos.Contains(c.Tipo)).Select(c => c.Nombre));
 
-    private static List<string> Ordenar(IEnumerable<string> nombres) =>
-        nombres.Order(StringComparer.CurrentCultureIgnoreCase).ToList();
+    private static List<string> Ordenar(IEnumerable<string> nombres) => OrdenCuentas.Ordenar(nombres);
 }

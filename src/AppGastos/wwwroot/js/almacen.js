@@ -174,6 +174,15 @@ window.appGastos = window.appGastos || {};
             });
         },
 
+        // Contar y vaciar van en la misma transacción: o se borran todas, o ninguna.
+        // Solo incluye el almacén de transacciones: no puede tocar cuentas ni ajustes.
+        borrarTodasLasTransacciones: () => ejecutar(TRANSACCIONES, "readwrite", (transaccion, salida) => {
+            const almacen = transaccion.objectStore(TRANSACCIONES);
+            const cantidad = almacen.count();
+            cantidad.onsuccess = () => salida.valor = cantidad.result;
+            almacen.clear();
+        }),
+
         listarCuentasOrigen: () => listarTodo(CUENTAS_ORIGEN),
         listarCuentasGasto: () => listarTodo(CUENTAS_GASTO),
         listarCuentasIngreso: () => listarTodo(CUENTAS_INGRESO),

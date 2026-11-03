@@ -1,0 +1,85 @@
+@page "/borrar-todo"
+@using AppGastos.Modelos
+@inject Almacen Almacen
+@inject AvisoPendiente Aviso
+@inject NavigationManager Navegacion
+
+<PageTitle>Borrar todas las transacciones</PageTitle>
+
+<h1>Borrar todas las transacciones</h1>
+
+@if (mensajeError is not null)
+{
+    <div class="mensaje mensaje-error" id="mensaje" role="alert">@mensajeError</div>
+}
+
+@if (transacciones is null)
+{
+    <p id="cargando">Cargando…</p>
+}
+else if (transacciones.Length == 0)
+{
+    <div class="aviso" id="sin-transacciones">No hay transacciones para borrar.</div>
+    <p><a class="boton" id="volver" href="historial">Ir al historial</a></p>
+}
+else
+{
+    <p id="cantidad-total">Se borrarán <strong>@ReglasBorrado.Cantidad(transacciones.Length)</strong> de todos los meses:</p>
+    <ListaTotales Transacciones="transacciones" />
+
+    <div class="aviso" id="recomendacion">
+        <p><strong>Exporta antes de borrar.</strong> Esto no se puede deshacer, y después no podrás volver a exportarlas.</p>
+        <a class="boton" id="exportar-todo" href="@ExportacionTransacciones.EnlaceTodo">Exportar todo</a>
+    </div>
+
+    <p>No se borran las cuentas, el correo guardado ni los archivos que ya estén en Descargas.</p>
+
+    <label class="etiqueta" for="confirmacion">Para confirmar, escribe @ReglasBorrado.PalabraDeConfirmacion</label>
+    <input class="campo" id="confirmacion" type="text" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false"
+           @bind="confirmacion" @bind:event="oninput" />
+
+    <button type="button" class="boton boton-peligro" id="confirmar-borrado" disabled="@(ocupado || !ReglasBorrado.ConfirmacionEsValida(confirmacion))" @onclick="BorrarTodas">Borrar todas las transacciones</button>
+    <a class="boton" id="cancelar" href="historial">Cancelar</a>
+}
+
+@code {
+    private Transaccion[]? transacciones;
+    private string confirmacion = "";
+    private string? mensajeError;
+    private bool ocupado;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            transacciones = await Almacen.ListarTransaccionesAsync();
+        }
+        catch (Exception error)
+        {
+            mensajeError = $"No se pudieron leer las transacciones: {error.Message}";
+        }
+    }
+
+    private async Task BorrarTodas()
+    {
+        // Un segundo toque seguido no debe borrar otra vez: el mensaje diría que se borraron 0.
+        if (ocupado || !ReglasBorrado.ConfirmacionEsValida(confirmacion))
+        {
+            return;
+        }
+
+        ocupado = true;
+        mensajeError = null;
+        try
+        {
+            var borradas = await Almacen.BorrarTodasLasTransaccionesAsync();
+            Aviso.Dejar(ReglasBorrado.Resultado(borradas));
+            Navegacion.NavigateTo("historial");
+        }
+        catch (Exception error)
+        {
+            mensajeError = $"No se pudo borrar. Las transacciones siguen guardadas. Detalle: {error.Message}";
+            ocupado = false;
+        }
+    }
+}
