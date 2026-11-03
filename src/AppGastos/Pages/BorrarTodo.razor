@@ -56,7 +56,7 @@ else
         }
         catch (Exception error)
         {
-            mensajeError = $"No se pudieron leer las transacciones: {error.Message}";
+            mensajeError = $"No se pudieron leer las transacciones: {TextoError.Detalle(error)}";
         }
     }
 
@@ -78,7 +78,7 @@ else
         }
         catch (Exception error)
         {
-            mensajeError = $"No se pudo borrar. Las transacciones siguen guardadas. Detalle: {error.Message}";
+            mensajeError = $"No se pudo borrar. Las transacciones siguen guardadas. Detalle: {TextoError.Detalle(error)}";
             ocupado = false;
         }
     }

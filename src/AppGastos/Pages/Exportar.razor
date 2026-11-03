@@ -98,7 +98,7 @@ else if (transacciones is not null)
         }
         catch (Exception error)
         {
-            MostrarError($"No se pudo leer el correo guardado: {error.Message}");
+            MostrarError($"No se pudo leer el correo guardado: {TextoError.Detalle(error)}");
         }
     }
 
@@ -144,7 +144,7 @@ else if (transacciones is not null)
         }
         catch (Exception error)
         {
-            MostrarError($"No se pudieron leer las transacciones: {error.Message}");
+            MostrarError($"No se pudieron leer las transacciones: {TextoError.Detalle(error)}");
         }
     }
 
@@ -168,7 +168,7 @@ else if (transacciones is not null)
         }
         catch (Exception error)
         {
-            MostrarError($"No se pudo guardar el correo: {error.Message}");
+            MostrarError($"No se pudo guardar el correo: {TextoError.Detalle(error)}");
         }
     }
 
@@ -210,7 +210,7 @@ else if (transacciones is not null)
         }
         catch (Exception error)
         {
-            MostrarError($"No se pudo crear el Excel: {error.Message}");
+            MostrarError($"No se pudo crear el Excel: {TextoError.Detalle(error)}");
         }
         finally
         {

@@ -42,7 +42,7 @@ else
         }
         catch (Exception error)
         {
-            errorAlCargar = $"No se pudieron leer las cuentas guardadas: {error.Message}";
+            errorAlCargar = $"No se pudieron leer las cuentas guardadas: {TextoError.Detalle(error)}";
             return;
         }
 

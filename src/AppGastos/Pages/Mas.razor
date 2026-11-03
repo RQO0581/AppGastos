@@ -1,4 +1,5 @@
 @page "/mas"
+@inject Almacen Almacen
 
 <PageTitle>Más</PageTitle>
 
@@ -8,3 +9,30 @@
 <p><a class="boton" id="ir-borrar" href="borrar">Borrar por fechas</a></p>
 
 <div class="aviso">Los datos viven en este teléfono. Si borras la app, se borran los datos. Exporta a menudo.</div>
+
+@if (protegido is { } estaProtegido)
+{
+    <p id="proteccion">
+        Protegido contra borrado automático: <strong>@(estaProtegido ? "sí" : "no")</strong>.
+        @if (!estaProtegido)
+        {
+            <text>El teléfono podría borrar los datos si le falta espacio. Exporta con más frecuencia.</text>
+        }
+    </p>
+}
+
+@code {
+    // Si no se puede saber, la línea no aparece: un fallo aquí no afecta a los datos.
+    private bool? protegido;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            protegido = await Almacen.PedirPersistenciaAsync();
+        }
+        catch (Exception)
+        {
+        }
+    }
+}

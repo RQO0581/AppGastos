@@ -130,7 +130,7 @@
         }
         catch (Exception error)
         {
-            MostrarError($"No se pudieron leer las cuentas guardadas: {error.Message}");
+            MostrarError($"No se pudieron leer las cuentas guardadas: {TextoError.Detalle(error)}");
         }
     }
 
@@ -160,7 +160,7 @@
         }
         catch (Exception error)
         {
-            MostrarError($"No se pudo abrir el archivo: {error.Message}");
+            MostrarError($"No se pudo abrir el archivo: {TextoError.Detalle(error)}");
         }
         finally
         {
@@ -182,7 +182,7 @@
         }
         catch (Exception error)
         {
-            MostrarError($"No se pudieron guardar las cuentas. Las cuentas anteriores siguen igual. Detalle: {error.Message}");
+            MostrarError($"No se pudieron guardar las cuentas. Las cuentas anteriores siguen igual. Detalle: {TextoError.Detalle(error)}");
         }
         finally
         {
@@ -205,7 +205,7 @@
         }
         catch (Exception error)
         {
-            MostrarError($"No se pudo crear la plantilla: {error.Message}");
+            MostrarError($"No se pudo crear la plantilla: {TextoError.Detalle(error)}");
         }
     }
 

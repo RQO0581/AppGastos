@@ -50,7 +50,7 @@ else
         }
         catch (Exception problema)
         {
-            error = $"No se pudo abrir la transacción: {problema.Message}";
+            error = $"No se pudo abrir la transacción: {TextoError.Detalle(problema)}";
         }
     }
 

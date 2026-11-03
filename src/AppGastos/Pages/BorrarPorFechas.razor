@@ -129,7 +129,7 @@ else if (transacciones is not null)
         }
         catch (Exception error)
         {
-            MostrarMensaje($"No se pudieron leer las transacciones: {error.Message}", esError: true);
+            MostrarMensaje($"No se pudieron leer las transacciones: {TextoError.Detalle(error)}", esError: true);
         }
     }
 
@@ -157,7 +157,7 @@ else if (transacciones is not null)
         }
         catch (Exception error)
         {
-            MostrarMensaje($"No se pudo borrar. Las transacciones siguen guardadas. Detalle: {error.Message}", esError: true);
+            MostrarMensaje($"No se pudo borrar. Las transacciones siguen guardadas. Detalle: {TextoError.Detalle(error)}", esError: true);
         }
         finally
         {

@@ -185,7 +185,7 @@ else if (Borrador.Tipo != TipoTransaccion.Gasto || Borrador.Metodo is not null)
             }
             catch (Exception error)
             {
-                errores = [$"No se pudo guardar en el teléfono. Lo que escribiste sigue aquí. Detalle: {error.Message}"];
+                errores = [$"No se pudo guardar en el teléfono. Lo que escribiste sigue aquí. Detalle: {TextoError.Detalle(error)}"];
             }
             finally
             {
