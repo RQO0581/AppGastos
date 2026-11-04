@@ -1,0 +1,38 @@
+@using AppGastos.Modelos
+
+@* La tabla tal como viene en el Excel: el mismo orden, la negrita y las filas vacías. *@
+<table class="tabla-testamento" id="@Id">
+    <tbody>
+        @for (var i = 0; i < Filas.Count; i++)
+        {
+            var fila = Filas[i];
+            var sinCantidad = fila.Cantidad is null && fila.TextoCantidad is null;
+            @if (sinCantidad && fila.Descripcion.Length == 0)
+            {
+                <tr class="fila-vacia"><td colspan="2"></td></tr>
+            }
+            else if (sinCantidad)
+            {
+                @* Un título o una sección puede ocupar todo el ancho, porque no tiene cantidad. *@
+                <tr class="@(i == 0 ? "fila-titulo" : "")">
+                    <td colspan="2" class="descripcion @(fila.DescripcionEnNegrita ? "negrita" : "")">@fila.Descripcion</td>
+                </tr>
+            }
+            else
+            {
+                <tr class="@(i == 0 ? "fila-titulo" : "")">
+                    <td class="descripcion @(fila.DescripcionEnNegrita ? "negrita" : "")">@fila.Descripcion</td>
+                    <td class="cantidad @(fila.CantidadEnNegrita ? "negrita" : "") @(fila.Cantidad < 0 ? "negativo" : "")">@(fila.Cantidad is { } monto ? TextoTransaccion.Monto(monto) : fila.TextoCantidad)</td>
+                </tr>
+            }
+        }
+    </tbody>
+</table>
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<FilaTestamento> Filas { get; set; } = [];
+
+    [Parameter]
+    public string Id { get; set; } = "tabla-testamento";
+}

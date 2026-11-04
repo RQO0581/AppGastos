@@ -1,0 +1,373 @@
+@page "/testamento"
+@using AppGastos.Modelos
+@implements IAsyncDisposable
+@inject ServicioTestamento Servicio
+
+<PageTitle>Testamento</PageTitle>
+
+<h1>Testamento</h1>
+
+@if (mensaje is not null)
+{
+    <div class="mensaje @(mensajeEsError ? "mensaje-error" : "mensaje-exito")" id="mensaje" role="status">@mensaje</div>
+}
+
+@switch (pantalla)
+{
+    case Pantalla.Cargando:
+        <p id="cargando">Cargando…</p>
+        break;
+
+    case Pantalla.CrearPin:
+        <p id="crear-pin-texto">Crea un PIN de @ServicioTestamento.LargoPin dígitos para proteger el testamento. Si lo olvidas, tendrás que borrar el testamento guardado y volver a importarlo.</p>
+        <label class="etiqueta" for="pin">PIN</label>
+        <input class="campo campo-pin" id="pin" type="text" inputmode="numeric" autocomplete="off" maxlength="@ServicioTestamento.LargoPin"
+               @bind:get="pin" @bind:set="valor => { pin = ServicioTestamento.LimpiarPin(valor); mensaje = null; }" @bind:event="oninput" />
+        <label class="etiqueta" for="pin-confirmacion">Escribe el PIN otra vez</label>
+        <input class="campo campo-pin" id="pin-confirmacion" type="text" inputmode="numeric" autocomplete="off" maxlength="@ServicioTestamento.LargoPin"
+               @bind:get="confirmacion" @bind:set="valor => { confirmacion = ServicioTestamento.LimpiarPin(valor); mensaje = null; }" @bind:event="oninput" />
+        <button type="button" class="boton" id="crear-pin" disabled="@(ocupado || !ServicioTestamento.PinEsValido(pin) || !ServicioTestamento.PinEsValido(confirmacion))" @onclick="CrearPin">Crear PIN</button>
+        break;
+
+    case Pantalla.PedirPin:
+        <label class="etiqueta" for="pin">Escribe tu PIN de @ServicioTestamento.LargoPin dígitos</label>
+        <input class="campo campo-pin" id="pin" type="text" inputmode="numeric" autocomplete="off" maxlength="@ServicioTestamento.LargoPin"
+               @bind:get="pin" @bind:set="valor => pin = ServicioTestamento.LimpiarPin(valor)" @bind:event="oninput" />
+        @if (SegundosDeEspera > 0)
+        {
+            <div class="aviso" id="espera">Demasiados intentos. Espera @SegundosDeEspera segundos.</div>
+        }
+        <button type="button" class="boton" id="entrar" disabled="@(ocupado || SegundosDeEspera > 0 || !ServicioTestamento.PinEsValido(pin))" @onclick="Entrar">@(ocupado ? "Comprobando…" : "Entrar")</button>
+        <button type="button" class="boton" id="olvide-pin" disabled="@ocupado" @onclick="PedirOlvido">Olvidé el PIN</button>
+        break;
+
+    case Pantalla.Olvido:
+        <div class="aviso" id="olvido-texto">Esto borra el testamento guardado y el PIN de este teléfono. Después podrás crear otro PIN y volver a importar el Excel. No se borran las transacciones, las cuentas ni el correo. No se puede deshacer.</div>
+        <label class="etiqueta" for="confirmar-olvido">Para confirmar, escribe @ReglasBorrado.PalabraDeConfirmacion</label>
+        <input class="campo" id="confirmar-olvido" type="text" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false"
+               @bind="palabraOlvido" @bind:event="oninput" />
+        <button type="button" class="boton" id="borrar-testamento" disabled="@(ocupado || !ReglasBorrado.ConfirmacionEsValida(palabraOlvido))" @onclick="BorrarTestamento">Borrar el testamento y el PIN</button>
+        <button type="button" class="boton" id="cancelar-olvido" disabled="@ocupado" @onclick="CancelarOlvido">Cancelar</button>
+        break;
+
+    case Pantalla.Contenido:
+        @if (lectura is { EsValido: true, Documento: not null })
+        {
+            <h2>Vista previa</h2>
+            <p id="archivo-elegido">Archivo: @nombreArchivo</p>
+            <TablaTestamento Filas="lectura.Documento.Filas" Id="vista-previa" />
+            @foreach (var aviso in lectura.Avisos)
+            {
+                <div class="aviso aviso-testamento">@aviso</div>
+            }
+            @if (documento is not null)
+            {
+                <div class="aviso">Esto reemplazará el testamento actual.</div>
+            }
+            <button type="button" class="boton" id="guardar-testamento" disabled="@ocupado" @onclick="GuardarTestamento">Guardar este testamento</button>
+            <button type="button" class="boton" id="cancelar-importar" disabled="@ocupado" @onclick="() => lectura = null">Cancelar</button>
+        }
+        else
+        {
+            @if (lectura is { EsValido: false })
+            {
+                <div class="mensaje mensaje-error" id="errores" role="alert">
+                    <p><strong>No se importó nada. El testamento guardado sigue igual:</strong></p>
+                    <ul>
+                        @foreach (var error in lectura.Errores)
+                        {
+                            <li>@error</li>
+                        }
+                    </ul>
+                </div>
+            }
+            @if (documento is null)
+            {
+                <div class="aviso" id="sin-testamento">Aún no hay testamento. Importa tu Excel.</div>
+            }
+            else
+            {
+                <p id="fecha-importacion">Importado el @FormatoFecha.EnPalabras(documento.FechaImportacion)</p>
+                <TablaTestamento Filas="documento.Filas" />
+            }
+
+            <label class="boton @(ocupado ? "boton-inactivo" : "")" for="archivo" id="elegir-archivo" data-elige-archivo>@(documento is null ? "Importar Excel" : "Importar otro Excel")</label>
+            @* La clave cambia tras cada lectura: sin esto, escoger el mismo archivo otra vez no haría nada. *@
+            <InputFile @key="claveSelector" id="archivo" class="visualmente-oculto" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" disabled="@ocupado" OnChange="LeerArchivo" />
+            <p>El PIN protege lo guardado en la app. Si el Excel original sigue en Descargas o en el correo, ahí no está protegido.</p>
+        }
+        break;
+}
+
+@code {
+    private enum Pantalla { Cargando, CrearPin, PedirPin, Olvido, Contenido }
+
+    private const long TamanoMaximo = 5 * 1024 * 1024;
+
+    private Pantalla pantalla = Pantalla.Cargando;
+    private DotNetObjectReference<VerTestamento>? referencia;
+    private DocumentoTestamento? documento;
+    private ResultadoTestamento? lectura;
+    private string nombreArchivo = "";
+    private int claveSelector;
+    private string pin = "";
+    private string confirmacion = "";
+    private string palabraOlvido = "";
+    private bool ocupado;
+    private string? mensaje;
+    private bool mensajeEsError;
+    private DateTime? esperaHasta;
+    private Timer? reloj;
+
+    private int SegundosDeEspera =>
+        esperaHasta is { } hasta ? Math.Max(0, (int)Math.Ceiling((hasta - DateTime.UtcNow).TotalSeconds)) : 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            referencia = DotNetObjectReference.Create(this);
+            await Servicio.VigilarAsync(referencia);
+            await MostrarInicio();
+        }
+        catch (Exception error)
+        {
+            MostrarError($"No se pudo abrir el testamento: {TextoError.Detalle(error)}");
+        }
+    }
+
+    private async Task MostrarInicio()
+    {
+        var estado = await Servicio.ObtenerEstadoAsync();
+        pantalla = estado.HayPin ? Pantalla.PedirPin : Pantalla.CrearPin;
+        IniciarEspera(estado.EsperaSegundos);
+    }
+
+    private void IniciarEspera(int segundos)
+    {
+        reloj?.Dispose();
+        reloj = null;
+        esperaHasta = null;
+        if (segundos > 0)
+        {
+            esperaHasta = DateTime.UtcNow.AddSeconds(segundos);
+            reloj = new Timer(_ => _ = InvokeAsync(StateHasChanged), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        }
+    }
+
+    private async Task CrearPin()
+    {
+        if (ocupado)
+        {
+            return;
+        }
+        if (pin != confirmacion)
+        {
+            MostrarError("Los dos PIN no coinciden. Escríbelos otra vez.");
+            pin = "";
+            confirmacion = "";
+            return;
+        }
+
+        ocupado = true;
+        try
+        {
+            await Servicio.CrearPinAsync(pin);
+            documento = null;
+            pantalla = Pantalla.Contenido;
+            MostrarExito("PIN creado. Ahora importa tu Excel.");
+        }
+        catch (Exception error)
+        {
+            MostrarError($"No se pudo crear el PIN: {TextoError.Detalle(error)}");
+        }
+        finally
+        {
+            pin = "";
+            confirmacion = "";
+            ocupado = false;
+        }
+    }
+
+    private async Task Entrar()
+    {
+        if (ocupado)
+        {
+            return;
+        }
+
+        ocupado = true;
+        mensaje = null;
+        try
+        {
+            var resultado = await Servicio.DesbloquearAsync(pin);
+            if (resultado.Correcto)
+            {
+                IniciarEspera(0);
+                documento = await Servicio.LeerAsync();
+                lectura = null;
+                pantalla = Pantalla.Contenido;
+            }
+            else if (resultado.EsperaSegundos > 0)
+            {
+                IniciarEspera(resultado.EsperaSegundos);
+            }
+            else
+            {
+                MostrarError($"PIN incorrecto. Te quedan {resultado.IntentosRestantes} intentos antes de tener que esperar.");
+            }
+        }
+        catch (Exception error)
+        {
+            MostrarError($"No se pudo abrir el testamento: {TextoError.Detalle(error)}");
+        }
+        finally
+        {
+            pin = "";
+            ocupado = false;
+        }
+    }
+
+    private void PedirOlvido()
+    {
+        mensaje = null;
+        pin = "";
+        palabraOlvido = "";
+        pantalla = Pantalla.Olvido;
+    }
+
+    private void CancelarOlvido()
+    {
+        palabraOlvido = "";
+        pantalla = Pantalla.PedirPin;
+    }
+
+    private async Task BorrarTestamento()
+    {
+        if (ocupado || !ReglasBorrado.ConfirmacionEsValida(palabraOlvido))
+        {
+            return;
+        }
+
+        ocupado = true;
+        try
+        {
+            await Servicio.BorrarTodoAsync();
+            documento = null;
+            lectura = null;
+            palabraOlvido = "";
+            IniciarEspera(0);
+            pantalla = Pantalla.CrearPin;
+            MostrarExito("Se borraron el testamento y el PIN. Crea un PIN nuevo para volver a importar.");
+        }
+        catch (Exception error)
+        {
+            MostrarError($"No se pudo borrar. El testamento sigue guardado. Detalle: {TextoError.Detalle(error)}");
+        }
+        finally
+        {
+            ocupado = false;
+        }
+    }
+
+    private async Task LeerArchivo(InputFileChangeEventArgs evento)
+    {
+        ocupado = true;
+        lectura = null;
+        mensaje = null;
+        nombreArchivo = evento.File.Name;
+        try
+        {
+            if (evento.File.Size > TamanoMaximo)
+            {
+                MostrarError("El archivo es demasiado grande. El máximo es de 5 MB.");
+                return;
+            }
+
+            // Blazor solo permite leer el archivo de forma asíncrona, y ClosedXML necesita poder recorrerlo.
+            using var memoria = new MemoryStream();
+            await using (var entrada = evento.File.OpenReadStream(TamanoMaximo))
+            {
+                await entrada.CopyToAsync(memoria);
+            }
+            memoria.Position = 0;
+            lectura = ImportadorTestamento.Leer(memoria, DateOnly.FromDateTime(DateTime.Now));
+        }
+        catch (Exception error)
+        {
+            MostrarError($"No se pudo abrir el archivo: {TextoError.Detalle(error)}");
+        }
+        finally
+        {
+            ocupado = false;
+            claveSelector++;
+        }
+    }
+
+    private async Task GuardarTestamento()
+    {
+        if (ocupado || lectura?.Documento is null)
+        {
+            return;
+        }
+
+        ocupado = true;
+        try
+        {
+            await Servicio.GuardarAsync(lectura.Documento);
+            // Se vuelve a leer para mostrar lo que de verdad quedó guardado.
+            documento = await Servicio.LeerAsync();
+            lectura = null;
+            MostrarExito("Testamento guardado.");
+        }
+        catch (Exception error)
+        {
+            MostrarError($"No se pudo guardar. El testamento anterior sigue igual. Detalle: {TextoError.Detalle(error)}");
+        }
+        finally
+        {
+            ocupado = false;
+        }
+    }
+
+    // Lo llama js/testamento.js cuando la app pasa a segundo plano.
+    [JSInvokable]
+    public async Task AlOcultarse()
+    {
+        documento = null;
+        lectura = null;
+        pin = "";
+        confirmacion = "";
+        mensaje = null;
+        if (pantalla == Pantalla.Contenido)
+        {
+            await MostrarInicio();
+        }
+        StateHasChanged();
+    }
+
+    private void MostrarExito(string texto)
+    {
+        mensaje = texto;
+        mensajeEsError = false;
+    }
+
+    private void MostrarError(string texto)
+    {
+        mensaje = texto;
+        mensajeEsError = true;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        reloj?.Dispose();
+        try
+        {
+            await Servicio.DejarDeVigilarAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        referencia?.Dispose();
+    }
+}

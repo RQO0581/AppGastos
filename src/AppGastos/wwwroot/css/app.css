@@ -269,6 +269,54 @@ h1:focus {
     background: #ffffff;
 }
 
+/* Oculta los dígitos sin usar type="password": así el teléfono no ofrece guardar el PIN como contraseña. */
+.campo-pin {
+    -webkit-text-security: disc;
+    font-size: 1.5rem;
+    letter-spacing: 0.5rem;
+    text-align: center;
+}
+
+.tabla-testamento {
+    width: 100%;
+    margin-bottom: 0.75rem;
+    border-collapse: collapse;
+}
+
+    .tabla-testamento td {
+        padding: 0.25rem 0;
+        vertical-align: top;
+    }
+
+    .tabla-testamento .descripcion {
+        /* Conserva la sangría del Excel, y un nombre largo no se sale de la pantalla. */
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    .tabla-testamento .cantidad {
+        padding-left: 0.75rem;
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .tabla-testamento .negrita {
+        font-weight: 700;
+    }
+
+    /* Es texto, no un botón: la regla de colores de los botones no aplica aquí. */
+    .tabla-testamento .negativo {
+        color: #b3261e;
+    }
+
+    .tabla-testamento .fila-titulo td {
+        font-size: 1.25rem;
+    }
+
+    .tabla-testamento .fila-vacia td {
+        height: 1rem;
+    }
+
 .zona-peligro {
     margin-top: 2rem;
     padding-top: 1rem;

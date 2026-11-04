@@ -2,12 +2,14 @@ window.appGastos = window.appGastos || {};
 
 (function () {
     const NOMBRE_BD = "AppGastos";
-    const VERSION_BD = 2;
+    const VERSION_BD = 3;
     const TRANSACCIONES = "transacciones";
     const CUENTAS_ORIGEN = "cuentasOrigen";
     const CUENTAS_GASTO = "cuentasGasto";
     const CUENTAS_INGRESO = "cuentasIngreso";
     const AJUSTES = "ajustes";
+    const TESTAMENTO = "testamento";
+    const SEGURIDAD_TESTAMENTO = "seguridadTestamento";
     const INDICE_FECHA = "fecha";
 
     let conexion = null;
@@ -53,6 +55,11 @@ window.appGastos = window.appGastos || {};
                 if (evento.oldVersion < 2) {
                     bd.createObjectStore(CUENTAS_INGRESO, { keyPath: "nombre" });
                     migrarTransaccionesAVersion2(solicitud.transaction);
+                }
+                // Almacenes aparte: los borrados de transacciones no los incluyen. No cambia datos existentes.
+                if (evento.oldVersion < 3) {
+                    bd.createObjectStore(TESTAMENTO, { keyPath: "clave" });
+                    bd.createObjectStore(SEGURIDAD_TESTAMENTO, { keyPath: "clave" });
                 }
             };
 
@@ -127,6 +134,8 @@ window.appGastos = window.appGastos || {};
         destino.clear();
         elementos.forEach(elemento => destino.put(elemento));
     }
+
+    window.appGastos.baseDatos = { ejecutar, TESTAMENTO, SEGURIDAD_TESTAMENTO };
 
     window.appGastos.almacen = {
         guardarTransaccion: transaccionNueva => ejecutar(TRANSACCIONES, "readwrite", transaccion => {

@@ -71,6 +71,8 @@ const borrarListo = `!!document.querySelector('#desde')?.value && (!!document.qu
 const abrirBorrar = async () => { await irA('borrar'); return esperar(borrarListo); };
 const hoy = () => evaluar(`(() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); })()`);
 const ponerTransacciones = lista => evaluar(`new Promise((res, rej) => { const r = indexedDB.open('AppGastos'); r.onsuccess = () => { const d = r.result; const t = d.transaction('transacciones','readwrite'); ${JSON.stringify(lista)}.forEach(c => t.objectStore('transacciones').put(c)); t.oncomplete = () => { d.close(); res('ok'); }; t.onerror = () => rej(t.error); }; })`);
+// Mientras Edge guarda el archivo, se llama .crdownload: hay que esperar a que termine antes de leer la carpeta.
+const esperarDescarga = async () => { const fin = Date.now() + 20000; while (Date.now() < fin) { const a = readdirSync(descargas); if (a.length > 0 && a.every(n => n.endsWith('.xlsx'))) return; await dormir(100); } };
 const ROJO = 'rgb(179, 38, 30)', AZUL = 'rgb(21, 101, 192)', GRIS = 'rgb(201, 201, 201)';
 
 await cdp('Runtime.enable');
@@ -166,7 +168,7 @@ if (etapa === 'conred') {
     await evaluar(`navigator.canShare = () => true; navigator.share = async () => { throw new DOMException('Permission denied', 'NotAllowedError'); };`);
     await tocar('#exportar');
     await esperar(`!!document.querySelector('#aviso-guardado')`, 20000);
-    await dormir(500);
+    await esperarDescarga();
     bien('exporta con el nombre del rango', readdirSync(descargas).join() === 'Gastos_2026-01-05_a_2026-01-31.xlsx', readdirSync(descargas).join());
     await tocar('#menu-exportar');
     await esperar(`document.querySelector('#desde')?.value !== '2026-01-05'`, 5000);
@@ -269,7 +271,7 @@ if (etapa === 'conred') {
     await evaluar(`navigator.canShare = () => true; navigator.share = async () => { throw new DOMException('Permission denied', 'NotAllowedError'); };`);
     await tocar('#exportar');
     await esperar(`!!document.querySelector('#aviso-guardado')`, 20000);
-    await dormir(500);
+    await esperarDescarga();
     bien('exporta todo con su nombre', readdirSync(descargas)[0]?.startsWith('Gastos_todo_al_'), readdirSync(descargas).join());
     await abrirBorrarTodo();
 

@@ -10,5 +10,6 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 builder.Services.AddScoped<CompartirArchivos>();
 builder.Services.AddScoped<Almacen>();
 builder.Services.AddScoped<AvisoPendiente>();
+builder.Services.AddScoped<ServicioTestamento>();
 
 await builder.Build().RunAsync();
