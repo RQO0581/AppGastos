@@ -127,6 +127,7 @@ Se publica primero y el Excel va justo después porque son los mayores riesgos. 
 2. **Fecha en el Excel exportado:** fecha real de Excel con formato `m/d/yyyy`.
 3. **Filtro de cuentas:** se usa el de la sección 3. ATH Móvil y débito siempre salen de una cuenta de banco.
 4. **Nota o descripción:** se añade como `Comentario` opcional (ver sección 13). Antes estaba fuera.
+12. **Producción y pruebas:** solo el usuario publica en producción, en una terminal normal. Se prueba primero en https://appgastos-pruebas.github.io/AppGastos-Pruebas/ , en otra organización de GitHub para que el navegador lo trate como otro sitio y sus datos queden separados; en `rqo0581.github.io` compartiría la base de datos con la app real. El repositorio de pruebas solo tiene la app compilada, sin documentos ni historial. El bloqueo tiene dos capas: reglas `deny` en `.claude/settings.json` y un hook `pre-push` local que pide `AUTORIZO_PRODUCCION=si`.
 5. **Repositorio público:** se suben el código y, por decisión del usuario, también `REQUISITOS.md`, `PLAN.md` y `CLAUDE.md`, tal como están. Los commits usan la identidad privada de GitHub.
 6. **Reembolsos:** se registran como el tipo `Devolución` (ver sección 12). Antes estaban fuera.
 7. **Cuenta de efectivo:** se llama `Efectivo`, y el sistema de contabilidad la acepta.

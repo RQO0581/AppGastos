@@ -1,0 +1,17 @@
+#!/bin/sh
+# Rechaza cualquier push al repositorio de produccion, salvo que el usuario lo autorice en ese momento.
+# Se instala con scripts\instalar-bloqueo-produccion.ps1: Git no sube la carpeta .git/hooks.
+url="$2"
+case "$url" in
+  *[Rr][Qq][Oo]0581/[Aa]pp[Gg]astos|*[Rr][Qq][Oo]0581/[Aa]pp[Gg]astos.git|*[Rr][Qq][Oo]0581/[Aa]pp[Gg]astos/)
+    if [ "$AUTORIZO_PRODUCCION" != "si" ]; then
+      echo "" >&2
+      echo "BLOQUEADO: esto publicaria la app real (produccion)." >&2
+      echo "Solo el usuario puede autorizarlo: en una terminal normal, primero" >&2
+      echo '  $env:AUTORIZO_PRODUCCION = "si"' >&2
+      echo "" >&2
+      exit 1
+    fi
+    ;;
+esac
+exit 0
