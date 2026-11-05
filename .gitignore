@@ -483,3 +483,8 @@ $RECYCLE.BIN/
 
 # Catálogos y exportaciones: pueden tener datos personales y el repositorio es público.
 *.xlsx
+
+# Documentos del proyecto: tienen datos personales. Se quedan solo en la PC del usuario.
+/REQUISITOS.md
+/PLAN.md
+/CLAUDE.md
