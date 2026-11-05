@@ -36,6 +36,7 @@ bien('no va por delante de la hora de Puerto Rico', compilada <= ahora, `${compi
 const estilo = prop => evaluar(`getComputedStyle(document.querySelector('#version')).${prop}`);
 bien('se ve discreta: letra pequeña', parseFloat(await estilo('fontSize')) < 16, await estilo('fontSize'));
 bien('se ve discreta: en gris', (await estilo('color')) === 'rgb(95, 95, 95)', await estilo('color'));
+bien('está en negritas', Number(await estilo('fontWeight')) >= 700, await estilo('fontWeight'));
 bien('está al final de la pantalla', await evaluar(`document.querySelector('main').lastElementChild === document.querySelector('#version') || !document.querySelector('#version').nextElementSibling`));
 await evaluar(`document.querySelector('#version').scrollIntoView({ block: 'center' })`);
 bien('el menú no la tapa', await evaluar(`document.querySelector('#version').getBoundingClientRect().bottom <= document.querySelector('.menu-inferior').getBoundingClientRect().top`));
