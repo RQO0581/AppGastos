@@ -178,6 +178,11 @@ Formato: archivo de Excel (.xlsx) con estas columnas, en este orden:
 - La primera vez, la app pide el correo electrónico de destino y lo guarda en el teléfono.
 - Las próximas veces, el correo aparece ya escrito con un botón "Copiar" para pegarlo en el destinatario. Se puede cambiar y el nuevo queda guardado.
 
+## Versión
+- Al final de la pantalla Más, de forma discreta, se muestra `Versión: yyyymmdd hhmmss`.
+- La fecha y hora se generan automáticamente al compilar y publicar, en la hora de Puerto Rico (America/Puerto_Rico), no en UTC.
+- Cada sitio muestra cuándo se compiló, así que AG Pruebas y producción muestran versiones distintas.
+
 ## Testamento
 - `Más` tiene un botón "Ver testamento". Al tocarlo, la app pide un PIN de 4 dígitos.
 - La primera vez, la app pide crear el PIN, escribiéndolo dos veces para confirmar.

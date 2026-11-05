@@ -18,4 +18,19 @@
     <ServiceWorker Include="wwwroot\service-worker.js" PublishedContent="wwwroot\service-worker.published.js" />
   </ItemGroup>
 
+  <!-- La versión que muestra la pantalla Más: la fecha y hora de esta compilación, en Puerto Rico.
+       Puerto Rico es UTC-4 todo el año, porque no cambia la hora en verano: una prueba automática lo vigila.
+       Se calcula desde UTC para dar el mismo resultado en esta PC y en el servidor de GitHub. -->
+  <Target Name="GenerarVersionCompilada" BeforeTargets="BeforeCompile">
+    <PropertyGroup>
+      <VersionCompilada>$([System.DateTime]::UtcNow.AddHours(-4).ToString('yyyyMMdd HHmmss'))</VersionCompilada>
+      <ArchivoVersionCompilada>$(IntermediateOutputPath)VersionCompilada.g.cs</ArchivoVersionCompilada>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(ArchivoVersionCompilada)" Overwrite="true"
+                      Lines="namespace AppGastos.Servicios%3B public static class VersionCompilada { public const string Valor = &quot;$(VersionCompilada)&quot;%3B }" />
+    <ItemGroup>
+      <Compile Include="$(ArchivoVersionCompilada)" />
+    </ItemGroup>
+  </Target>
+
 </Project>

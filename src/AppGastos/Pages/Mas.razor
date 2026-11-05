@@ -22,6 +22,9 @@
     </p>
 }
 
+@* Se genera al compilar. Es la versión que este teléfono está usando de verdad. *@
+<p class="version" id="version">Versión: @VersionCompilada.Valor</p>
+
 @code {
     // Si no se puede saber, la línea no aparece: un fallo aquí no afecta a los datos.
     private bool? protegido;
