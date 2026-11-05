@@ -43,6 +43,10 @@ const separacion = () => evaluar(`document.querySelector('.menu-inferior').getBo
 bien('el menú no la tapa', (await separacion()) >= 0, String(await separacion()));
 bien('está justo encima del menú', (await separacion()) <= 8, `${await separacion()} px`);
 
+// Bajar la versión no debe mover lo demás: entre dos párrafos, la separación es el mayor de sus márgenes, no la suma.
+const separacionBotones = await evaluar(`(() => { const a = document.querySelector('#ir-importar').parentElement; const b = document.querySelector('#ir-borrar').parentElement; return { hueco: b.getBoundingClientRect().top - a.getBoundingClientRect().bottom, esperado: Math.max(parseFloat(getComputedStyle(a).marginBottom), parseFloat(getComputedStyle(b).marginTop)) }; })()`);
+bien('los botones conservan su separación', Math.abs(separacionBotones.hueco - separacionBotones.esperado) < 0.5, `${separacionBotones.hueco} px, esperado ${separacionBotones.esperado} px`);
+
 // En un teléfono alto queda abajo sin necesidad de scroll, y en uno bajo no tapa el contenido.
 for (const [ancho, alto] of [[390, 844], [320, 480]]) {
     await cdp('Emulation.setDeviceMetricsOverride', { width: ancho, height: alto, deviceScaleFactor: 2, mobile: true });
