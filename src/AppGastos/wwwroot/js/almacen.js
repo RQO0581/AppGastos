@@ -135,7 +135,9 @@ window.appGastos = window.appGastos || {};
         elementos.forEach(elemento => destino.put(elemento));
     }
 
-    window.appGastos.baseDatos = { ejecutar, TESTAMENTO, SEGURIDAD_TESTAMENTO };
+    // TODOS es lo que copia y restaura el respaldo: un almacén nuevo debe añadirse aquí.
+    const TODOS = [TRANSACCIONES, CUENTAS_ORIGEN, CUENTAS_GASTO, CUENTAS_INGRESO, AJUSTES, TESTAMENTO, SEGURIDAD_TESTAMENTO];
+    window.appGastos.baseDatos = { ejecutar, TESTAMENTO, SEGURIDAD_TESTAMENTO, AJUSTES, TODOS };
 
     window.appGastos.almacen = {
         guardarTransaccion: transaccionNueva => ejecutar(TRANSACCIONES, "readwrite", transaccion => {

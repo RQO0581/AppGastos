@@ -200,6 +200,21 @@ h1:focus {
     font: inherit;
 }
 
+/* Casilla grande y con su texto al lado, cómoda para el dedo. */
+.casilla {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 48px;
+    margin: -0.5rem 0 0.75rem;
+}
+
+    .casilla input {
+        width: 1.25rem;
+        height: 1.25rem;
+        margin: 0;
+    }
+
 .contador {
     margin: -0.5rem 0 0.75rem;
     color: #5f5f5f;

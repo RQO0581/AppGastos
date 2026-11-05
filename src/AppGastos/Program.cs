@@ -11,5 +11,6 @@ builder.Services.AddScoped<CompartirArchivos>();
 builder.Services.AddScoped<Almacen>();
 builder.Services.AddScoped<AvisoPendiente>();
 builder.Services.AddScoped<ServicioTestamento>();
+builder.Services.AddScoped<ServicioRespaldo>();
 
 await builder.Build().RunAsync();

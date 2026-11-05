@@ -1,0 +1,271 @@
+@page "/respaldo"
+@using System.Text
+@inject ServicioRespaldo Servicio
+@inject CompartirArchivos Compartir
+
+<PageTitle>Respaldo</PageTitle>
+
+<h1>Respaldo</h1>
+
+<p>Un respaldo es un archivo con todo lo de este teléfono: transacciones, cuentas, correo guardado y testamento. Sirve para pasar los datos a otro teléfono o a otra dirección de la app.</p>
+
+<h2>Crear respaldo</h2>
+<p>El archivo va cifrado con la contraseña que escojas. Sin ella no se puede abrir. La app no la guarda, así que si la olvidas, ese respaldo no sirve. Tus datos siguen en el teléfono y puedes crear otro.</p>
+
+<label class="etiqueta" for="contrasena-crear">Contraseña (mínimo @ReglasRespaldo.LargoMinimoContrasena caracteres)</label>
+<input class="campo" id="contrasena-crear" type="@TipoCampo" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false"
+       @bind="contrasenaCrear" @bind:event="oninput" />
+<label class="etiqueta" for="contrasena-repetir">Repite la contraseña</label>
+<input class="campo" id="contrasena-repetir" type="@TipoCampo" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false"
+       @bind="contrasenaRepetida" @bind:event="oninput" />
+<label class="casilla"><input type="checkbox" id="mostrar-contrasenas" @bind="mostrarContrasenas" /> Mostrar las contraseñas</label>
+@if (ReglasRespaldo.ProblemaContrasena(contrasenaCrear, contrasenaRepetida) is { } problema && contrasenaCrear.Length > 0)
+{
+    <p class="contador" id="problema-contrasena">@problema</p>
+}
+
+@if (mensajeCrear is not null)
+{
+    <div class="mensaje @(errorCrear ? "mensaje-error" : "mensaje-exito")" id="mensaje-crear" role="status">@mensajeCrear</div>
+}
+<button type="button" class="boton" id="crear-respaldo" disabled="@(ocupado || ReglasRespaldo.ProblemaContrasena(contrasenaCrear, contrasenaRepetida) is not null)" @onclick="Crear">
+    @(creando ? "Creando respaldo…" : "Crear respaldo")
+</button>
+
+<h2>Restaurar respaldo</h2>
+<p>Reemplaza todo lo que hay en este teléfono por lo que tiene el respaldo.</p>
+
+<label class="boton @(ocupado ? "boton-inactivo" : "")" for="archivo-respaldo">Escoger archivo de respaldo</label>
+@* La clave cambia tras cada lectura: sin esto, escoger el mismo archivo otra vez no haría nada. *@
+<InputFile @key="claveSelector" id="archivo-respaldo" class="visualmente-oculto" accept=".json,application/json" disabled="@ocupado" OnChange="LeerArchivo" />
+
+@if (textoArchivo is not null && revision is null)
+{
+    <p id="archivo-escogido">Archivo: @nombreArchivo</p>
+    <label class="etiqueta" for="contrasena-abrir">Contraseña del respaldo</label>
+    <input class="campo" id="contrasena-abrir" type="@TipoCampo" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+           @bind="contrasenaAbrir" @bind:event="oninput" />
+    <button type="button" class="boton" id="abrir-respaldo" disabled="@(ocupado || contrasenaAbrir.Length == 0)" @onclick="Abrir">
+        @(abriendo ? "Abriendo…" : "Abrir respaldo")
+    </button>
+}
+
+@if (mensajeRestaurar is not null)
+{
+    <div class="mensaje @(errorRestaurar ? "mensaje-error" : "mensaje-exito")" id="mensaje-restaurar" role="status">@mensajeRestaurar</div>
+}
+
+@if (revision?.Resumen is { } r)
+{
+    <div id="resumen-respaldo">
+        <p>Archivo: @nombreArchivo</p>
+        <p>Creado el @ReglasRespaldo.CreadoEnPalabras(r.Creado).</p>
+        <ul>
+            <li>@ReglasRespaldo.Cantidad(r.Transacciones, "transacción", "transacciones")</li>
+            <li>@ReglasRespaldo.Cantidad(r.CuentasOrigen, "cuenta de origen", "cuentas de origen"), @ReglasRespaldo.Cantidad(r.CuentasGasto, "cuenta de gasto", "cuentas de gasto") y @ReglasRespaldo.Cantidad(r.CuentasIngreso, "cuenta de ingreso", "cuentas de ingreso")</li>
+            <li>Correo guardado: @ReglasRespaldo.SiNo(r.HayCorreo)</li>
+            <li>Testamento: @ReglasRespaldo.SiNo(r.HayTestamento)@(r.HayTestamento ? ", se abre con su mismo PIN" : "")</li>
+        </ul>
+    </div>
+
+    @if (HayDatosAhora)
+    {
+        <div class="aviso" id="aviso-reemplazo">
+            Este teléfono ya tiene datos: @ReglasRespaldo.Cantidad(actuales["transacciones"], "transacción", "transacciones"), @(actuales["cuentasOrigen"] + actuales["cuentasGasto"] + actuales["cuentasIngreso"]) cuentas y testamento: @ReglasRespaldo.SiNo(actuales["testamento"] > 0).
+            Se reemplazarán todos por los del respaldo, y esto no se puede deshacer.
+        </div>
+        <label class="etiqueta" for="confirmacion">Para confirmar, escribe @ReglasRespaldo.PalabraDeConfirmacion</label>
+        <input class="campo" id="confirmacion" type="text" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false"
+               @bind="confirmacion" @bind:event="oninput" />
+    }
+
+    <button type="button" class="boton" id="restaurar" disabled="@(ocupado || (HayDatosAhora && !ReglasRespaldo.ConfirmacionEsValida(confirmacion)))" @onclick="Restaurar">Restaurar respaldo</button>
+    <button type="button" class="boton" id="cancelar-restaurar" disabled="@ocupado" @onclick="Cancelar">Cancelar</button>
+}
+
+@if (restaurado)
+{
+    <RecordatorioRespaldo />
+}
+
+<p><a class="boton" id="volver-mas" href="mas">Volver a Más</a></p>
+
+@code {
+    private const long TamanoMaximo = 50 * 1024 * 1024;
+
+    private string contrasenaCrear = "";
+    private string contrasenaRepetida = "";
+    private string contrasenaAbrir = "";
+    private bool mostrarContrasenas;
+    private bool ocupado;
+    private bool creando;
+    private bool abriendo;
+    private string? mensajeCrear;
+    private bool errorCrear;
+
+    private int claveSelector;
+    private string nombreArchivo = "";
+    private string? textoArchivo;
+    private string? contenido;
+    private RevisionRespaldo? revision;
+    private Dictionary<string, int> actuales = new();
+    private string confirmacion = "";
+    private string? mensajeRestaurar;
+    private bool errorRestaurar;
+    private bool restaurado;
+
+    private string TipoCampo => mostrarContrasenas ? "text" : "password";
+
+    private bool HayDatosAhora => actuales.Values.Any(cantidad => cantidad > 0);
+
+    private async Task Crear()
+    {
+        if (ocupado || ReglasRespaldo.ProblemaContrasena(contrasenaCrear, contrasenaRepetida) is not null)
+        {
+            return;
+        }
+
+        ocupado = creando = true;
+        mensajeCrear = null;
+        try
+        {
+            var texto = await Servicio.CrearAsync(contrasenaCrear);
+            var nombre = ReglasRespaldo.NombreArchivo(DateOnly.FromDateTime(DateTime.Now));
+            var estado = await Compartir.CompartirOGuardarRespaldoAsync(nombre, Encoding.UTF8.GetBytes(texto));
+            errorCrear = estado == "cancelado";
+            mensajeCrear = estado switch
+            {
+                "compartido" => $"Respaldo creado y compartido: {nombre}. Guárdalo solo hasta restaurarlo, y recuerda la contraseña.",
+                "cancelado" => "No se compartió el respaldo. Vuelve a tocar Crear respaldo.",
+                _ => $"Respaldo guardado en Descargas: {nombre}. Guárdalo solo hasta restaurarlo, y recuerda la contraseña.",
+            };
+            if (!errorCrear)
+            {
+                contrasenaCrear = contrasenaRepetida = "";
+            }
+        }
+        catch (Exception error)
+        {
+            errorCrear = true;
+            mensajeCrear = $"No se pudo crear el respaldo: {TextoError.Detalle(error)}";
+        }
+        finally
+        {
+            ocupado = creando = false;
+        }
+    }
+
+    private async Task LeerArchivo(InputFileChangeEventArgs evento)
+    {
+        Limpiar();
+        nombreArchivo = evento.File.Name;
+        ocupado = true;
+        try
+        {
+            if (evento.File.Size > TamanoMaximo)
+            {
+                MostrarError("El archivo es demasiado grande para ser un respaldo. No se cambió nada.");
+                return;
+            }
+            await using var entrada = evento.File.OpenReadStream(TamanoMaximo);
+            using var lector = new StreamReader(entrada, Encoding.UTF8);
+            textoArchivo = await lector.ReadToEndAsync();
+        }
+        catch (Exception error)
+        {
+            MostrarError($"No se pudo leer el archivo: {TextoError.Detalle(error)}. No se cambió nada.");
+        }
+        finally
+        {
+            ocupado = false;
+            claveSelector++;
+        }
+    }
+
+    private async Task Abrir()
+    {
+        ocupado = abriendo = true;
+        mensajeRestaurar = null;
+        try
+        {
+            var apertura = await Servicio.AbrirAsync(textoArchivo!, contrasenaAbrir);
+            if (apertura.Estado != "ok" || apertura.Contenido is null)
+            {
+                MostrarError(ReglasRespaldo.ErrorDeApertura(apertura.Estado));
+                return;
+            }
+
+            var resultado = RevisorRespaldo.Revisar(apertura.Contenido);
+            if (!resultado.EsValido)
+            {
+                MostrarError(resultado.Error!);
+                return;
+            }
+
+            actuales = await Servicio.ContarAsync();
+            contenido = apertura.Contenido;
+            revision = resultado;
+            contrasenaAbrir = "";
+        }
+        catch (Exception error)
+        {
+            MostrarError($"No se pudo abrir el respaldo: {TextoError.Detalle(error)}. No se cambió nada.");
+        }
+        finally
+        {
+            ocupado = abriendo = false;
+        }
+    }
+
+    private async Task Restaurar()
+    {
+        if (ocupado || contenido is null || revision?.Resumen is not { } resumen || HayDatosAhora && !ReglasRespaldo.ConfirmacionEsValida(confirmacion))
+        {
+            return;
+        }
+
+        ocupado = true;
+        try
+        {
+            await Servicio.RestaurarAsync(contenido);
+            Limpiar();
+            mensajeRestaurar = ReglasRespaldo.Resultado(resumen);
+            errorRestaurar = false;
+            restaurado = true;
+        }
+        catch (Exception error)
+        {
+            MostrarError($"No se pudo restaurar. Los datos de este teléfono siguen como estaban. Detalle: {TextoError.Detalle(error)}");
+        }
+        finally
+        {
+            ocupado = false;
+        }
+    }
+
+    private void Cancelar()
+    {
+        Limpiar();
+        mensajeRestaurar = "No se restauró nada.";
+        errorRestaurar = false;
+    }
+
+    // Lo descifrado solo vive mientras se decide: al terminar o cancelar, se suelta.
+    private void Limpiar()
+    {
+        textoArchivo = null;
+        contenido = null;
+        revision = null;
+        actuales = new();
+        confirmacion = "";
+        contrasenaAbrir = "";
+        mensajeRestaurar = null;
+        restaurado = false;
+    }
+
+    private void MostrarError(string texto)
+    {
+        mensajeRestaurar = texto;
+        errorRestaurar = true;
+    }
+}

@@ -15,9 +15,12 @@ await irA('mas');
 await esperar(`!!document.querySelector('#version') || !!document.querySelector('.menu-inferior')`, 60000);
 if (!(await evaluar(`!!document.querySelector('#version')`))) {
     // Un servidor de prueba sin service worker no conoce esta dirección: se entra por el menú.
+    // Con el teléfono vacío, la app manda a Importar cuentas al abrir: se espera a que termine de decidir,
+    // porque si no, esa redirección llega después de tocar Más y la prueba termina en Importar.
     await irA('');
-    await esperar(`!!document.querySelector('#menu-mas')`, 60000);
+    await esperar(`!!document.querySelector('#menu-mas') && !document.body.innerText.includes('Cargando')`, 60000);
     await p.servicioListo();
+    await new Promise(r => setTimeout(r, 500));
     await p.tocar('#menu-mas');
     await esperar(`!!document.querySelector('#version')`, 10000);
 }

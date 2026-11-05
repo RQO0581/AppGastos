@@ -108,6 +108,13 @@
 {
     <p><a class="boton" id="ir-inicio" href="./">Ir al inicio</a></p>
 }
+else
+{
+    @* En un teléfono nuevo, o en una dirección nueva de la app, lo normal es traer todo de un respaldo. *@
+    <h2>¿Tienes un respaldo?</h2>
+    <p>Si pasas tus datos desde otro teléfono o desde otra dirección de la app, restaura el respaldo: trae las cuentas, las transacciones, el correo y el testamento.</p>
+    <p><a class="boton" id="ir-respaldo-importar" href="respaldo">Restaurar un respaldo</a></p>
+}
 
 @code {
     private const long TamanoMaximo = 5 * 1024 * 1024;

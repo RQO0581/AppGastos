@@ -1,0 +1,56 @@
+@inject ServicioRespaldo Respaldo
+
+@* Se queda en Más hasta tocar "Ya lo borré": la app no puede borrar archivos de Descargas por sí sola. *@
+@if (visible)
+{
+    <div class="aviso" id="recordatorio-respaldo" role="status">
+        <p><strong>Borra el archivo de respaldo.</strong> Ya restauraste los datos, y el archivo los tiene todos. La app no puede borrarlo por ti.</p>
+        <p>Busca el archivo <strong>AppGastos-respaldo-….json</strong>:</p>
+        <ul>
+            <li><strong>Samsung:</strong> abre Mis archivos, entra en Descargas, mantén presionado el archivo y toca Eliminar. Si tienes Papelera, vacíala.</li>
+            <li><strong>iPhone:</strong> abre Archivos, entra en Descargas (en iCloud Drive o En mi iPhone), mantén presionado el archivo y toca Eliminar. Después vacía Eliminado recientemente.</li>
+            <li>Si lo enviaste por correo o lo guardaste en Drive, bórralo de allí también.</li>
+        </ul>
+        <button type="button" class="boton" id="ya-lo-borre" disabled="@ocupado" @onclick="Quitar">Ya lo borré</button>
+        @if (error is not null)
+        {
+            <div class="mensaje mensaje-error" role="alert">@error</div>
+        }
+    </div>
+}
+
+@code {
+    private bool visible;
+    private bool ocupado;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            visible = await Respaldo.HayRecordatorioAsync();
+        }
+        catch (Exception)
+        {
+            // Si no se puede leer, no se muestra: no afecta a los datos.
+        }
+    }
+
+    private async Task Quitar()
+    {
+        ocupado = true;
+        try
+        {
+            await Respaldo.QuitarRecordatorioAsync();
+            visible = false;
+        }
+        catch (Exception e)
+        {
+            error = $"No se pudo quitar el recordatorio: {TextoError.Detalle(e)}";
+        }
+        finally
+        {
+            ocupado = false;
+        }
+    }
+}
