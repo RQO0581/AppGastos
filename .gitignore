@@ -483,8 +483,3 @@ $RECYCLE.BIN/
 
 # Catálogos y exportaciones: pueden tener datos personales y el repositorio es público.
 *.xlsx
-
-# Documentos con datos personales: solo en esta PC.
-REQUISITOS.md
-PLAN.md
-CLAUDE.md
