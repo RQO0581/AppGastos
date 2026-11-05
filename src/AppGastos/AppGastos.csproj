@@ -23,7 +23,7 @@
        Se calcula desde UTC para dar el mismo resultado en esta PC y en el servidor de GitHub. -->
   <Target Name="GenerarVersionCompilada" BeforeTargets="BeforeCompile">
     <PropertyGroup>
-      <VersionCompilada>$([System.DateTime]::UtcNow.AddHours(-4).ToString('yyyyMMdd HHmmss'))</VersionCompilada>
+      <VersionCompilada>$([System.DateTime]::UtcNow.AddHours(-4).ToString('yyyy-MM-dd HH:mm:ss'))</VersionCompilada>
       <ArchivoVersionCompilada>$(IntermediateOutputPath)VersionCompilada.g.cs</ArchivoVersionCompilada>
     </PropertyGroup>
     <WriteLinesToFile File="$(ArchivoVersionCompilada)" Overwrite="true"

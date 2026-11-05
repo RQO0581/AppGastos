@@ -24,12 +24,12 @@ if (!(await evaluar(`!!document.querySelector('#version')`))) {
 
 const textoVersion = await texto('#version');
 console.log('version:', textoVersion);
-const m = textoVersion.match(/^Versión: (\d{4})(\d{2})(\d{2}) (\d{2})(\d{2})(\d{2})$/);
-bien('el formato es Versión: yyyymmdd hhmmss', !!m, textoVersion);
+const m = textoVersion.match(/^Versión: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})$/);
+bien('el formato es Versión: aaaa-mm-dd hh:mm:ss', !!m, textoVersion);
 
 // La hora de Puerto Rico, según el navegador: si la versión estuviera en UTC, iría 4 horas por delante.
-const ahora = await evaluar(`(() => { const f = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Puerto_Rico', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(new Date()); const v = t => f.find(x => x.type === t).value; return v('year') + v('month') + v('day') + ' ' + v('hour') + v('minute') + v('second'); })()`);
-const compilada = m ? `${m[1]}${m[2]}${m[3]} ${m[4]}${m[5]}${m[6]}` : '';
+const ahora = await evaluar(`(() => { const f = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Puerto_Rico', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(new Date()); const v = t => f.find(x => x.type === t).value; return v('year') + '-' + v('month') + '-' + v('day') + ' ' + v('hour') + ':' + v('minute') + ':' + v('second'); })()`);
+const compilada = m ? m[1] : '';
 console.log('hora de Puerto Rico ahora:', ahora);
 bien('no va por delante de la hora de Puerto Rico', compilada <= ahora, `${compilada} frente a ${ahora}`);
 

@@ -8,12 +8,12 @@ public class VersionCompiladaTests
     private static readonly TimeZoneInfo PuertoRico = TimeZoneInfo.FindSystemTimeZoneById("America/Puerto_Rico");
 
     private static DateTime Leer() =>
-        DateTime.ParseExact(VersionCompilada.Valor, "yyyyMMdd HHmmss", CultureInfo.InvariantCulture, DateTimeStyles.None);
+        DateTime.ParseExact(VersionCompilada.Valor, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture, DateTimeStyles.None);
 
     [Fact]
     public void TieneElFormatoPedido()
     {
-        Assert.Matches(@"^\d{8} \d{6}$", VersionCompilada.Valor);
+        Assert.Matches(@"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$", VersionCompilada.Valor);
         Leer();
     }
 
@@ -23,7 +23,7 @@ public class VersionCompiladaTests
     {
         var ahora = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, PuertoRico);
 
-        Assert.True(Leer() <= ahora.AddMinutes(1), $"Versión {VersionCompilada.Valor}, hora de Puerto Rico {ahora:yyyyMMdd HHmmss}");
+        Assert.True(Leer() <= ahora.AddMinutes(1), $"Versión {VersionCompilada.Valor}, hora de Puerto Rico {ahora:yyyy-MM-dd HH:mm:ss}");
     }
 
     // AppGastos.csproj resta 4 horas fijas a UTC. Si Puerto Rico cambiara de horario, esta prueba avisa.
