@@ -179,7 +179,7 @@ Formato: archivo de Excel (.xlsx) con estas columnas, en este orden:
 - Las próximas veces, el correo aparece ya escrito con un botón "Copiar" para pegarlo en el destinatario. Se puede cambiar y el nuevo queda guardado.
 
 ## Versión
-- Al final de la pantalla Más, en letra pequeña, gris y en negritas, se muestra la versión con este formato: `Versión: 2026-11-04 22:22:57` (año-mes-día hora:minutos:segundos).
+- Al final de la pantalla Más, lo más abajo posible, justo encima del menú, en letra pequeña, gris y en negritas, se muestra la versión con este formato: `Versión: 2026-11-04 22:22:57` (año-mes-día hora:minutos:segundos).
 - La fecha y hora se generan automáticamente al compilar y publicar, en la hora de Puerto Rico (America/Puerto_Rico), no en UTC.
 - Cada sitio muestra cuándo se compiló, así que AG Pruebas y producción muestran versiones distintas.
 

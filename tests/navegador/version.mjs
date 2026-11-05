@@ -39,7 +39,24 @@ bien('se ve discreta: en gris', (await estilo('color')) === 'rgb(95, 95, 95)', a
 bien('está en negritas', Number(await estilo('fontWeight')) >= 700, await estilo('fontWeight'));
 bien('está al final de la pantalla', await evaluar(`document.querySelector('main').lastElementChild === document.querySelector('#version') || !document.querySelector('#version').nextElementSibling`));
 await evaluar(`document.querySelector('#version').scrollIntoView({ block: 'center' })`);
-bien('el menú no la tapa', await evaluar(`document.querySelector('#version').getBoundingClientRect().bottom <= document.querySelector('.menu-inferior').getBoundingClientRect().top`));
+const separacion = () => evaluar(`document.querySelector('.menu-inferior').getBoundingClientRect().top - document.querySelector('#version').getBoundingClientRect().bottom`);
+bien('el menú no la tapa', (await separacion()) >= 0, String(await separacion()));
+bien('está justo encima del menú', (await separacion()) <= 8, `${await separacion()} px`);
+
+// En un teléfono alto queda abajo sin necesidad de scroll, y en uno bajo no tapa el contenido.
+for (const [ancho, alto] of [[390, 844], [320, 480]]) {
+    await cdp('Emulation.setDeviceMetricsOverride', { width: ancho, height: alto, deviceScaleFactor: 2, mobile: true });
+    await evaluar(`window.scrollTo(0, document.documentElement.scrollHeight)`);
+    await new Promise(r => setTimeout(r, 200));
+    bien(`a ${ancho}x${alto}, justo encima del menú al final`, (await separacion()) >= 0 && (await separacion()) <= 8, `${await separacion()} px`);
+    bien(`a ${ancho}x${alto}, no tapa lo anterior`, await evaluar(`(() => { const v = document.querySelector('#version'); const a = v.previousElementSibling.getBoundingClientRect().bottom; return v.getBoundingClientRect().top + parseFloat(getComputedStyle(v).paddingTop) >= a; })()`));
+    bien(`a ${ancho}x${alto}, sin desborde a los lados`, await evaluar('document.documentElement.scrollWidth <= innerWidth'));
+    if (carpeta) {
+        const { result } = await cdp('Page.captureScreenshot', { format: 'png' });
+        writeFileSync(join(carpeta, `version-${ancho}x${alto}.png`), Buffer.from(result.data, 'base64'));
+    }
+}
+bien('sin scroll en un teléfono alto', await (async () => { await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true }); await new Promise(r => setTimeout(r, 200)); return evaluar('document.documentElement.scrollHeight <= innerHeight'); })());
 if (carpeta) {
     const { result } = await cdp('Page.captureScreenshot', { format: 'png' });
     writeFileSync(join(carpeta, 'version.png'), Buffer.from(result.data, 'base64'));
