@@ -1,5 +1,6 @@
 @page "/exportar"
 @using AppGastos.Modelos
+@implements IDisposable
 @inject Almacen Almacen
 @inject CompartirArchivos Compartir
 
@@ -10,14 +11,14 @@
 <p>Por defecto, del día 1 de este mes hasta hoy. Puedes cambiar las fechas, o quitarlas para exportar todas las transacciones.</p>
 
 <label class="etiqueta" for="desde">Desde</label>
-<input class="campo" id="desde" type="date" @bind="desde" @bind:after="CargarTransacciones" />
+<input class="campo" id="desde" type="date" @bind="desde" @bind:after="AlCambiarFechaAMano" />
 @if (desde is { } fechaDesde)
 {
     <p class="fecha-palabras" id="desde-palabras">@FormatoFecha.EnPalabras(fechaDesde)</p>
 }
 
 <label class="etiqueta" for="hasta">Hasta</label>
-<input class="campo" id="hasta" type="date" @bind="hasta" @bind:after="CargarTransacciones" />
+<input class="campo" id="hasta" type="date" @bind="hasta" @bind:after="AlCambiarFechaAMano" />
 @if (hasta is { } fechaHasta)
 {
     <p class="fecha-palabras" id="hasta-palabras">@FormatoFecha.EnPalabras(fechaHasta)</p>
@@ -89,6 +90,10 @@ else if (transacciones is not null)
     private bool ocupado;
     private bool enfocarMensaje;
     private ElementReference zonaMensaje;
+    private RangoVigilado? vigilado;
+    private Timer? reloj;
+
+    private static DateOnly Hoy() => DateOnly.FromDateTime(DateTime.Now);
 
     protected override async Task OnInitializedAsync()
     {
@@ -100,16 +105,41 @@ else if (transacciones is not null)
         {
             MostrarError($"No se pudo leer el correo guardado: {TextoError.Detalle(error)}");
         }
+        reloj = new Timer(_ => _ = InvokeAsync(RevisarCambioDeDia), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
     }
 
     // Se ejecuta también al cambiar la dirección sin salir de la pantalla, por ejemplo al tocar Exportar en el menú.
     protected override async Task OnParametersSetAsync()
     {
-        var rango = ExportacionTransacciones.RangoInicial(TextoDesde, TextoHasta, TextoTodo, DateOnly.FromDateTime(DateTime.Now));
+        var hoy = Hoy();
+        var rango = ExportacionTransacciones.RangoInicial(TextoDesde, TextoHasta, TextoTodo, hoy);
         desde = rango.Desde;
         hasta = rango.Hasta;
+        // Si la dirección trae un rango, lo escogió el usuario en otra pantalla: no debe cambiar solo.
+        var sinRangoEnLaDireccion = TextoDesde is null && TextoHasta is null && TextoTodo is null;
+        vigilado = new RangoVigilado(hoy, sinRangoEnLaDireccion);
         await CargarTransacciones();
     }
+
+    private async Task RevisarCambioDeDia()
+    {
+        if (vigilado?.Revisar(Hoy(), enPausa: ocupado) is { } rango)
+        {
+            desde = rango.Desde;
+            hasta = rango.Hasta;
+            // Sin borrar el mensaje: el aviso de "Abrir correo" puede seguir en uso al cambiar el día.
+            await LeerTransacciones();
+            StateHasChanged();
+        }
+    }
+
+    private async Task AlCambiarFechaAMano()
+    {
+        vigilado?.MarcarAMano();
+        await CargarTransacciones();
+    }
+
+    public void Dispose() => reloj?.Dispose();
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -120,11 +150,16 @@ else if (transacciones is not null)
         }
     }
 
-    // Se leen antes de tocar "Exportar": Safari puede bloquear Compartir si pasa tiempo desde el toque.
     private async Task CargarTransacciones()
     {
         mensaje = null;
         archivoGuardado = null;
+        await LeerTransacciones();
+    }
+
+    // Se leen antes de tocar "Exportar": Safari puede bloquear Compartir si pasa tiempo desde el toque.
+    private async Task LeerTransacciones()
+    {
         transacciones = null;
         var lectura = ++ultimaLectura;
 
@@ -152,6 +187,7 @@ else if (transacciones is not null)
     {
         desde = null;
         hasta = null;
+        vigilado?.MarcarAMano();
         await CargarTransacciones();
     }
 

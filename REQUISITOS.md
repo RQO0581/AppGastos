@@ -168,6 +168,7 @@ Formato: archivo de Excel (.xlsx) con estas columnas, en este orden:
 - Los montos van con dos decimales.
 - Antes de exportar, se podrá escoger un rango de fechas. "Desde" trae por defecto el día 1 del mes actual y "Hasta" la fecha de hoy del teléfono. Se pueden cambiar, y debajo de cada campo se muestra la fecha en palabras.
 - Un botón permite quitar las fechas para exportar todas las transacciones.
+- Si la pantalla queda abierta y cambia el día, las fechas por defecto avanzan solas. Un rango escogido por el usuario no cambia. Lo mismo aplica en "Borrar datos por fecha", donde además las fechas no se mueven mientras se confirma un borrado.
 
 ## Envío por correo
 - Al exportar, la app crea el Excel e intenta abrir "Compartir" del teléfono (Web Share API). Si se abre, se escoge Gmail o Correo y el archivo va adjunto.

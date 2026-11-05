@@ -1,5 +1,6 @@
 @page "/borrar"
 @using AppGastos.Modelos
+@implements IDisposable
 @inject Almacen Almacen
 
 <PageTitle>Borrar por fechas</PageTitle>
@@ -9,14 +10,14 @@
 <p>Por defecto, del día 1 de este mes hasta hoy. Puedes cambiar las fechas. Se borran también las transacciones de esos dos días.</p>
 
 <label class="etiqueta" for="desde">Desde</label>
-<input class="campo" id="desde" type="date" @bind="desde" @bind:after="CargarTransacciones" />
+<input class="campo" id="desde" type="date" @bind="desde" @bind:after="AlCambiarFechaAMano" />
 @if (desde is { } fechaDesde)
 {
     <p class="fecha-palabras" id="desde-palabras">@FormatoFecha.EnPalabras(fechaDesde)</p>
 }
 
 <label class="etiqueta" for="hasta">Hasta</label>
-<input class="campo" id="hasta" type="date" @bind="hasta" @bind:after="CargarTransacciones" />
+<input class="campo" id="hasta" type="date" @bind="hasta" @bind:after="AlCambiarFechaAMano" />
 @if (hasta is { } fechaHasta)
 {
     <p class="fecha-palabras" id="hasta-palabras">@FormatoFecha.EnPalabras(fechaHasta)</p>
@@ -83,14 +84,41 @@ else if (transacciones is not null)
     private bool mensajeEsError;
     private bool enfocarMensaje;
     private ElementReference zonaMensaje;
+    private RangoVigilado? vigilado;
+    private Timer? reloj;
+
+    private static DateOnly Hoy() => DateOnly.FromDateTime(DateTime.Now);
 
     protected override async Task OnInitializedAsync()
     {
-        var rango = ExportacionTransacciones.RangoPorDefecto(DateOnly.FromDateTime(DateTime.Now));
+        var hoy = Hoy();
+        var rango = ExportacionTransacciones.RangoPorDefecto(hoy);
         desde = rango.Desde;
         hasta = rango.Hasta;
+        vigilado = new RangoVigilado(hoy, automatico: true);
+        reloj = new Timer(_ => _ = InvokeAsync(RevisarCambioDeDia), null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
         await LeerRango();
     }
+
+    // Con la confirmación abierta las fechas no se mueven: los totales que se ven son los que se van a borrar.
+    private async Task RevisarCambioDeDia()
+    {
+        if (vigilado?.Revisar(Hoy(), enPausa: confirmando || ocupado) is { } rango)
+        {
+            desde = rango.Desde;
+            hasta = rango.Hasta;
+            await LeerRango();
+            StateHasChanged();
+        }
+    }
+
+    private async Task AlCambiarFechaAMano()
+    {
+        vigilado?.MarcarAMano();
+        await CargarTransacciones();
+    }
+
+    public void Dispose() => reloj?.Dispose();
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
