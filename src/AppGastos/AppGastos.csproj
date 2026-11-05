@@ -18,12 +18,17 @@
     <ServiceWorker Include="wwwroot\service-worker.js" PublishedContent="wwwroot\service-worker.published.js" />
   </ItemGroup>
 
-  <!-- La versión que muestra la pantalla Más: la fecha y hora de esta compilación, en Puerto Rico.
-       Puerto Rico es UTC-4 todo el año, porque no cambia la hora en verano: una prueba automática lo vigila.
-       Se calcula desde UTC para dar el mismo resultado en esta PC y en el servidor de GitHub. -->
+  <!-- La versión que muestra la pantalla Más: la fecha y hora de la última publicación en pruebas.
+       La escribe scripts/publicar-pruebas.ps1 en version-pruebas.txt. Producción compila con ese mismo
+       archivo, así que muestra la versión que se aprobó en pruebas, no la hora de su propia compilación.
+       Sin el archivo, la compilación falla: es mejor no publicar que mostrar una versión falsa. -->
   <Target Name="GenerarVersionCompilada" BeforeTargets="BeforeCompile">
     <PropertyGroup>
-      <VersionCompilada>$([System.DateTime]::UtcNow.AddHours(-4).ToString('yyyy-MM-dd HH:mm:ss'))</VersionCompilada>
+      <ArchivoVersionPruebas>$(MSBuildProjectDirectory)/version-pruebas.txt</ArchivoVersionPruebas>
+    </PropertyGroup>
+    <Error Condition="!Exists('$(ArchivoVersionPruebas)')" Text="Falta version-pruebas.txt: lo escribe scripts/publicar-pruebas.ps1." />
+    <PropertyGroup>
+      <VersionCompilada>$([System.IO.File]::ReadAllText('$(ArchivoVersionPruebas)').Trim())</VersionCompilada>
       <ArchivoVersionCompilada>$(IntermediateOutputPath)VersionCompilada.g.cs</ArchivoVersionCompilada>
     </PropertyGroup>
     <WriteLinesToFile File="$(ArchivoVersionCompilada)" Overwrite="true"

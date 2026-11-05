@@ -47,6 +47,10 @@ robocopy (Join-Path $Repo 'src\AppGastos') $Copia /E /XD bin obj /NFL /NDL /NJH 
 if ($LASTEXITCODE -ge 8) { throw "Fallo: copiar el codigo (codigo $LASTEXITCODE)" }
 $LASTEXITCODE = 0
 
+# La version de esta publicacion, en hora de Puerto Rico (UTC-4 todo el anio; una prueba automatica lo vigila).
+$VersionPruebas = [DateTime]::UtcNow.AddHours(-4).ToString('yyyy-MM-dd HH:mm:ss', [Globalization.CultureInfo]::InvariantCulture)
+[IO.File]::WriteAllText((Join-Path $Copia 'version-pruebas.txt'), "$VersionPruebas`n", $SinBom)
+
 # Debe hacerse antes de publicar: el service worker verifica el hash de index.html.
 $Index = Join-Path $Copia 'wwwroot\index.html'
 $Manifest = Join-Path $Copia 'wwwroot\manifest.webmanifest'
@@ -113,3 +117,7 @@ Comprobar 'crear el commit'
 git -C $Sitio push -q --force $Destino main
 Comprobar 'subir a pruebas'
 Write-Output 'publicado: https://appgastos-pruebas.github.io/AppGastos-Pruebas/'
+
+# Solo despues de subir: produccion usara esta version cuando este archivo llegue en un commit.
+[IO.File]::WriteAllText((Join-Path $Repo 'src\AppGastos\version-pruebas.txt'), "$VersionPruebas`n", $SinBom)
+Write-Output "version publicada: $VersionPruebas (hay que incluir version-pruebas.txt en el commit)"

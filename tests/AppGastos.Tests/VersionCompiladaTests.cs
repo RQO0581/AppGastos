@@ -17,6 +17,20 @@ public class VersionCompiladaTests
         Leer();
     }
 
+    // Producción debe mostrar la versión aprobada en pruebas, no la hora de su propia compilación.
+    [Fact]
+    public void EsLaVersionPublicadaEnPruebas()
+    {
+        var carpeta = new DirectoryInfo(AppContext.BaseDirectory);
+        while (carpeta is not null && !File.Exists(Path.Combine(carpeta.FullName, "src", "AppGastos", "version-pruebas.txt")))
+        {
+            carpeta = carpeta.Parent;
+        }
+
+        Assert.NotNull(carpeta);
+        Assert.Equal(VersionCompilada.Valor, File.ReadAllText(Path.Combine(carpeta.FullName, "src", "AppGastos", "version-pruebas.txt")).Trim());
+    }
+
     // Si la versión estuviera en UTC, aquí iría unas 4 horas por delante de la hora de Puerto Rico.
     [Fact]
     public void NoVaPorDelanteDeLaHoraDePuertoRico()

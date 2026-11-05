@@ -180,8 +180,8 @@ Formato: archivo de Excel (.xlsx) con estas columnas, en este orden:
 
 ## Versión
 - Al final de la pantalla Más, lo más abajo posible, justo encima del menú, en letra pequeña, gris y en negritas, se muestra la versión con este formato: `Versión: 2026-11-04 22:22:57` (año-mes-día hora:minutos:segundos).
-- La fecha y hora se generan automáticamente al compilar y publicar, en la hora de Puerto Rico (America/Puerto_Rico), no en UTC.
-- Cada sitio muestra cuándo se compiló, así que AG Pruebas y producción muestran versiones distintas.
+- La fecha y hora se generan automáticamente al publicar en AG Pruebas, en la hora de Puerto Rico (America/Puerto_Rico), no en UTC.
+- Producción muestra la misma versión que se aprobó en AG Pruebas, no la hora en que GitHub la compiló.
 
 ## Testamento
 - `Más` tiene un botón "Ver testamento". Al tocarlo, la app pide un PIN de 4 dígitos.
